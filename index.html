@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ledger</title>
-  <meta name="description" content="What I'm working on, what it costs, who has helped, and how to reach me." />
+  <meta name="description" content="What I'm working on, what it costs, who has helped, and how to reach me. Live from the source." />
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23111'/%3E%3Cpath d='M11 8v16h10' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -12,8 +12,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <script>
-    // Apply saved theme before paint to avoid a flash.
-    try { const t = localStorage.getItem("ledger-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    // Dark by default; the toggle remembers a choice.
+    var t = "dark"; try { t = localStorage.getItem("ledger-theme") || "dark"; } catch (e) {}
+    document.documentElement.dataset.theme = t;
   </script>
 </head>
 <body>
@@ -23,19 +24,22 @@
     <div class="topbar-inner">
       <a href="#overview" class="brand" aria-label="Back to top">
         <span class="brand-mark" aria-hidden="true">L</span>
-        <span class="brand-name" data-bind="profile.name">Ledger</span>
-        <span class="demo-pill" id="demoPill" hidden title="Edit data.js and set demo: false">sample data</span>
+        <span class="brand-name" id="brandName">Ledger</span>
       </a>
       <nav class="nav" id="nav" aria-label="Sections">
         <span class="nav-indicator" id="navIndicator" aria-hidden="true"></span>
-        <a href="#overview">Overview</a>
-        <a href="#projects">Projects</a>
-        <a href="#drives">Drives</a>
-        <a href="#supporters">Supporters</a>
-        <a href="#donate">Donate</a>
+        <a href="#projects" hidden>Work</a>
+        <a href="#drives" hidden>Drives</a>
+        <a href="#supporters" hidden>Backers</a>
+        <a href="#videos" hidden>Videos</a>
+        <a href="#github" hidden>GitHub</a>
+        <a href="#donate" hidden>Support</a>
         <a href="#contact">Contact</a>
       </nav>
       <div class="topbar-actions">
+        <button class="live-pill" id="livePill" aria-label="Refresh live data" title="Refresh now">
+          <span class="live-dot"></span><span id="liveText">Connecting…</span>
+        </button>
         <button class="kbd-btn" id="openPalette" aria-label="Open command menu">
           <svg viewBox="0 0 24 24" class="i"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <span class="kbd-label">Search</span>
@@ -50,122 +54,42 @@
   </header>
 
   <main>
-    <!-- ───────────── OVERVIEW / BENTO ───────────── -->
+    <!-- Owner-only setup checklist (shown on localhost/file:// or with ?setup) -->
+    <section id="setup" class="section section-first" hidden></section>
+
     <section id="overview" class="section section-first">
-      <div class="bento">
-        <article class="card tile tile-profile reveal">
-          <div class="profile-top">
-            <div class="avatar" id="avatar" aria-hidden="true"></div>
-            <span class="status-pill"><span class="pulse"></span><span data-bind="profile.status"></span></span>
-          </div>
-          <h1 class="profile-name" data-bind="profile.name"></h1>
-          <p class="profile-handle mono">@<span data-bind="profile.handle"></span> · <span data-bind="profile.location"></span></p>
-          <p class="profile-tagline" data-bind="profile.tagline"></p>
-          <div class="profile-cta">
-            <a href="#donate" class="btn btn-primary">Support my work
-              <svg viewBox="0 0 24 24" class="i"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </a>
-            <a href="#contact" class="btn btn-ghost">Get in touch</a>
-          </div>
-        </article>
-
-        <article class="card tile tile-total reveal">
-          <div class="tile-label">Total raised</div>
-          <div class="big-number mono" id="statTotal">0</div>
-          <div class="tile-sub" id="statTotalSub"></div>
-          <svg class="sparkline" id="sparkline" viewBox="0 0 200 48" preserveAspectRatio="none" aria-hidden="true"></svg>
-        </article>
-
-        <article class="card tile tile-supporters reveal">
-          <div class="tile-label">Supporters</div>
-          <div class="big-number mono" id="statSupporters">0</div>
-          <div class="avatar-stack" id="avatarStack"></div>
-        </article>
-
-        <article class="card tile tile-drive reveal" id="tileDrive">
-          <div class="tile-label">Current drive</div>
-          <div class="ring-wrap">
-            <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
-              <circle class="ring-track" cx="60" cy="60" r="52"/>
-              <circle class="ring-fill" id="ringFill" cx="60" cy="60" r="52"/>
-            </svg>
-            <div class="ring-center"><span class="mono" id="ringPct">0%</span></div>
-          </div>
-          <div class="tile-drive-meta">
-            <div class="tile-drive-title" id="tileDriveTitle">No active drive</div>
-            <div class="tile-sub mono" id="tileDriveCountdown"></div>
-          </div>
-        </article>
-
-        <article class="card tile tile-clock reveal">
-          <div class="tile-label">My local time</div>
-          <div class="clock mono" id="clock">--:--</div>
-          <div class="tile-sub" id="clockSub"></div>
-          <div class="tile-sub muted" data-bind="profile.responseTime"></div>
-        </article>
-
-        <article class="card tile tile-discord reveal" id="tileDiscord">
-          <div class="tile-label">Community</div>
-          <div class="discord-row">
-            <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" class="i"><path d="M7 17c-2 0-4-1.2-4-1.2V8.5L5.6 6h12.8L21 8.5v7.3S19 17 17 17l-1-1.6"/><path d="M8.5 15.4c2.2 1 4.8 1 7 0"/><circle cx="9.5" cy="11.5" r="1"/><circle cx="14.5" cy="11.5" r="1"/></svg></span>
-            <div>
-              <div class="tile-strong" id="discordName">Discord</div>
-              <div class="tile-sub" id="discordOnline">Join the server</div>
-            </div>
-          </div>
-          <a class="btn btn-ghost btn-sm" id="discordJoin" target="_blank" rel="noopener">Join
-            <svg viewBox="0 0 24 24" class="i"><path d="M7 17 17 7M8 7h9v9"/></svg>
-          </a>
-        </article>
-
-        <article class="card tile tile-github reveal" id="tileGithub">
-          <div class="tile-label">GitHub</div>
-          <div class="gh-stats">
-            <div><span class="mono gh-num" id="ghRepos">–</span><span class="tile-sub">repos</span></div>
-            <div><span class="mono gh-num" id="ghFollowers">–</span><span class="tile-sub">followers</span></div>
-          </div>
-          <a class="tile-sub link-arrow" id="ghLink" target="_blank" rel="noopener">View profile →</a>
-        </article>
-      </div>
+      <div class="bento" id="bento"></div>
     </section>
 
-    <!-- ───────────── PROJECTS ───────────── -->
-    <section id="projects" class="section">
+    <section id="projects" class="section" hidden>
       <div class="section-head reveal">
         <div>
           <span class="eyebrow mono">01</span>
           <h2>What I'm working on</h2>
-          <p class="section-sub">Things that need funding, and where each one stands.</p>
+          <p class="section-sub">Live from GitHub issues. Upvote or comment to show interest.</p>
         </div>
-        <div class="seg" id="projectFilter" role="tablist" aria-label="Filter projects">
-          <button role="tab" class="on" data-filter="all">All</button>
-          <button role="tab" data-filter="active">Active</button>
-          <button role="tab" data-filter="planned">Planned</button>
-          <button role="tab" data-filter="funded">Funded</button>
-        </div>
+        <div class="seg" id="projectFilter" role="tablist" aria-label="Filter projects"></div>
       </div>
       <div class="project-grid" id="projectGrid"></div>
     </section>
 
-    <!-- ───────────── DRIVES ───────────── -->
-    <section id="drives" class="section">
+    <section id="drives" class="section" hidden>
       <div class="section-head reveal">
         <div>
           <span class="eyebrow mono">02</span>
-          <h2>Funding drives</h2>
-          <p class="section-sub">Time-boxed pushes toward a specific goal.</p>
+          <h2>Funding drives &amp; goals</h2>
+          <p class="section-sub">Time-boxed pushes and the goals set on each platform.</p>
         </div>
       </div>
       <div class="drive-list" id="driveList"></div>
     </section>
 
-    <!-- ───────────── SUPPORTERS ───────────── -->
-    <section id="supporters" class="section">
+    <section id="supporters" class="section" hidden>
       <div class="section-head reveal">
         <div>
           <span class="eyebrow mono">03</span>
           <h2>People who've helped</h2>
-          <p class="section-sub">Every contribution, logged. Thank you.</p>
+          <p class="section-sub">Pulled straight from each platform. Thank you.</p>
         </div>
       </div>
 
@@ -173,8 +97,8 @@
         <article class="card chart-card reveal">
           <div class="card-head">
             <div>
-              <div class="tile-label">Contributions per month</div>
-              <div class="chart-total mono" id="chartTotal"></div>
+              <div class="tile-label">Payments per month</div>
+              <div class="chart-total mono" id="chartTotal">–</div>
             </div>
             <div class="seg seg-sm" id="chartRange" role="tablist" aria-label="Chart range">
               <button role="tab" data-range="6">6M</button>
@@ -183,6 +107,7 @@
             </div>
           </div>
           <div class="chart" id="chart"></div>
+          <p class="fine" id="chartNote"></p>
         </article>
 
         <article class="card board-card reveal">
@@ -195,11 +120,10 @@
         <div class="table-tools">
           <label class="search">
             <svg viewBox="0 0 24 24" class="i"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input type="search" id="tableSearch" placeholder="Search name, note, platform…" autocomplete="off" />
+            <input type="search" id="tableSearch" placeholder="Search name, message, source…" autocomplete="off" />
           </label>
-          <div class="select-wrap">
-            <select id="tableProject" aria-label="Filter by project"></select>
-          </div>
+          <div class="select-wrap"><select id="tableSource" aria-label="Filter by source"></select></div>
+          <div class="select-wrap"><select id="tableProject" aria-label="Filter by project"></select></div>
           <div class="select-wrap">
             <select id="tableSort" aria-label="Sort">
               <option value="date-desc">Newest first</option>
@@ -212,9 +136,7 @@
         </div>
         <div class="table-scroll">
           <table class="ledger-table">
-            <thead>
-              <tr><th>Date</th><th>From</th><th>For</th><th>Via</th><th class="num">Amount</th></tr>
-            </thead>
+            <thead><tr><th>Date</th><th>From</th><th>For</th><th>Source</th><th class="num">Amount</th></tr></thead>
             <tbody id="tableBody"></tbody>
           </table>
         </div>
@@ -225,70 +147,59 @@
       </article>
     </section>
 
-    <!-- ───────────── DONATE ───────────── -->
-    <section id="donate" class="section">
+    <section id="videos" class="section" hidden>
       <div class="section-head reveal">
         <div>
           <span class="eyebrow mono">04</span>
+          <h2>Videos</h2>
+          <p class="section-sub" id="videosSub">Latest uploads.</p>
+        </div>
+      </div>
+      <div id="videosBody" class="videos-body"></div>
+    </section>
+
+    <section id="github" class="section" hidden>
+      <div class="section-head reveal">
+        <div>
+          <span class="eyebrow mono">05</span>
+          <h2>On GitHub</h2>
+          <p class="section-sub">What I've been building lately, live from GitHub.</p>
+        </div>
+      </div>
+      <div id="githubBody" class="github-body"></div>
+    </section>
+
+    <section id="donate" class="section" hidden>
+      <div class="section-head reveal">
+        <div>
+          <span class="eyebrow mono">06</span>
           <h2>Ways to support</h2>
-          <p class="section-sub">Pick whatever's easiest. Every bit is logged above.</p>
+          <p class="section-sub">Every card below shows that platform's live numbers.</p>
         </div>
-        <div class="seg" id="platformFilter" role="tablist" aria-label="Filter platforms">
-          <button role="tab" class="on" data-filter="all">All</button>
-          <button role="tab" data-filter="recurring">Recurring</button>
-          <button role="tab" data-filter="one-time">One-time</button>
-          <button role="tab" data-filter="crypto">Crypto</button>
-        </div>
+        <div class="seg" id="platformFilter" role="tablist" aria-label="Filter platforms"></div>
       </div>
       <div class="platform-grid" id="platformGrid"></div>
     </section>
 
-    <!-- ───────────── CONTACT ───────────── -->
     <section id="contact" class="section">
       <div class="section-head reveal">
         <div>
-          <span class="eyebrow mono">05</span>
+          <span class="eyebrow mono">07</span>
           <h2>Get in touch</h2>
           <p class="section-sub">Questions, collabs, or just to say hi.</p>
         </div>
       </div>
-      <div class="contact-grid">
-        <article class="card contact-email reveal" id="emailCard">
-          <div class="tile-label">Email</div>
-          <div class="email-line mono" id="emailText"></div>
-          <div class="row gap-8">
-            <button class="btn btn-primary btn-sm" id="copyEmail">
-              <svg viewBox="0 0 24 24" class="i"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
-              Copy
-            </button>
-            <a class="btn btn-ghost btn-sm" id="mailtoEmail">Compose</a>
-          </div>
-        </article>
-        <article class="card contact-discord reveal" id="discordCard">
-          <div class="tile-label">Discord</div>
-          <div class="tile-strong" id="discordName2"></div>
-          <div class="tile-sub" id="discordOnline2"></div>
-          <div class="discord-members" id="discordMembers"></div>
-          <a class="btn btn-primary btn-sm" id="discordJoin2" target="_blank" rel="noopener">Join server
-            <svg viewBox="0 0 24 24" class="i"><path d="M7 17 17 7M8 7h9v9"/></svg>
-          </a>
-        </article>
-        <article class="card contact-socials reveal">
-          <div class="tile-label">Socials</div>
-          <ul class="social-list" id="socialList"></ul>
-        </article>
-      </div>
+      <div class="contact-grid" id="contactGrid"></div>
     </section>
   </main>
 
   <footer class="footer">
     <div class="footer-inner">
-      <span class="mono tile-sub" id="lastUpdated"></span>
+      <span class="tile-sub" id="footerSources"></span>
       <span class="tile-sub">Press <kbd>/</kbd> to search · <a href="#overview">Back to top ↑</a></span>
     </div>
   </footer>
 
-  <!-- Project detail -->
   <dialog class="modal" id="projectModal" aria-labelledby="pmTitle">
     <div class="modal-inner">
       <button class="icon-btn modal-close" data-close aria-label="Close">
@@ -298,7 +209,6 @@
     </div>
   </dialog>
 
-  <!-- Command palette -->
   <dialog class="palette" id="palette" aria-label="Command menu">
     <div class="palette-inner">
       <label class="palette-search">
@@ -314,7 +224,8 @@
   <div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <script src="ledger.config.js"></script>
+  <script src="js/sources.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

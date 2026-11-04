@@ -1,0 +1,99 @@
+{
+  "generatedAt": "2026-11-04T18:13:36.417Z",
+  "github": {
+    "updatedAt": "2026-11-04T18:13:36.161Z",
+    "profile": {
+      "login": "Ahmadhussain0033",
+      "name": "Ahmad Hussain",
+      "avatar": "https://avatars.githubusercontent.com/u/119059212?v=4",
+      "bio": "Infomation Theoretic at Heart",
+      "location": "Pakistan",
+      "blog": "",
+      "email": null,
+      "twitter": null,
+      "company": "Hexoro",
+      "followers": 0,
+      "following": 0,
+      "repos": 5,
+      "url": "https://github.com/Ahmadhussain0033",
+      "hireable": null,
+      "createdAt": "2022-11-25T14:04:18Z"
+    },
+    "socials": [
+      {
+        "provider": "instagram",
+        "url": "https://www.instagram.com/therealahmadhussain/"
+      }
+    ],
+    "repos": [
+      {
+        "name": "Ledger",
+        "description": null,
+        "url": "https://github.com/Ahmadhussain0033/Ledger",
+        "homepage": null,
+        "language": "JavaScript",
+        "stars": 0,
+        "forks": 0,
+        "topics": [],
+        "pushedAt": "2026-11-04T17:51:34Z",
+        "archived": false
+      },
+      {
+        "name": "WIG",
+        "description": "Fundamental Theory and Approach at Compression",
+        "url": "https://github.com/Ahmadhussain0033/WIG",
+        "homepage": null,
+        "language": null,
+        "stars": 0,
+        "forks": 0,
+        "topics": [],
+        "pushedAt": "2026-10-31T18:43:25Z",
+        "archived": false
+      },
+      {
+        "name": "Ahmads-Game-of-Information",
+        "description": "A Conways Game of Life spin for Information Theory and what learning is at its Heart",
+        "url": "https://github.com/Ahmadhussain0033/Ahmads-Game-of-Information",
+        "homepage": null,
+        "language": null,
+        "stars": 1,
+        "forks": 0,
+        "topics": [],
+        "pushedAt": "2026-10-30T20:22:52Z",
+        "archived": false
+      },
+      {
+        "name": "Turing-Machines",
+        "description": "UTM ",
+        "url": "https://github.com/Ahmadhussain0033/Turing-Machines",
+        "homepage": null,
+        "language": null,
+        "stars": 1,
+        "forks": 0,
+        "topics": [],
+        "pushedAt": "2026-10-30T20:21:11Z",
+        "archived": false
+      },
+      {
+        "name": "run-xero-identity",
+        "description": null,
+        "url": "https://github.com/Ahmadhussain0033/run-xero-identity",
+        "homepage": null,
+        "language": null,
+        "stars": 1,
+        "forks": 0,
+        "topics": [],
+        "pushedAt": "2026-08-08T08:32:06Z",
+        "archived": false
+      }
+    ],
+    "projects": [],
+    "drives": [],
+    "errors": []
+  },
+  "youtube": null,
+  "discord": null,
+  "rates": null,
+  "sources": {},
+  "errors": {}
+}

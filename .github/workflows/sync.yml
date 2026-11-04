@@ -1,0 +1,64 @@
+name: Sync ledger
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"        # token-based sources (Sponsors, Patreon, Buy Me a Coffee)
+  workflow_dispatch:               # "Run workflow" button
+  repository_dispatch:
+    types: [kofi-donation]         # sent by relay/kofi-worker.js
+  issues:                          # projects update as soon as an issue changes
+    types: [opened, edited, closed, reopened, labeled, unlabeled, deleted]
+  milestone:                       # drives update as soon as a milestone changes
+    types: [created, edited, opened, closed, deleted]
+  push:
+    branches: [main]
+    paths: ["ledger.config.js", "js/sources.js", "scripts/**", ".github/workflows/sync.yml"]
+    # (README.md and data/ are written by this workflow; its own pushes never retrigger it)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ledger-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Record Ko-fi payment
+        if: github.event_name == 'repository_dispatch'
+        env:
+          KOFI_PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+        run: node scripts/kofi-append.mjs
+
+      - name: Fetch sources
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPONSORS_TOKEN: ${{ secrets.SPONSORS_TOKEN }}
+          PATREON_TOKEN: ${{ secrets.PATREON_TOKEN }}
+          PATREON_CURRENCY: ${{ vars.PATREON_CURRENCY }}
+          BMC_TOKEN: ${{ secrets.BMC_TOKEN }}
+        run: node scripts/sync.mjs
+
+      - name: Rebuild README from the data
+        run: node scripts/readme.mjs
+
+      - name: Commit if anything changed
+        run: |
+          if [ -n "$(git status --porcelain data README.md docs/readme)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data README.md docs/readme
+            git commit -m "Sync ledger data"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          else
+            echo "No data changes."
+          fi
