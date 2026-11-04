@@ -157,7 +157,11 @@ if (D.recurringParts.length) stats.push(["Recurring", `${money(Math.round(D.recu
 if (D.supporters > 0 || D.leaders.length) stats.push(["Supporters", int(D.supporters || D.leaders.length), D.supporterParts.length > 1 ? "across platforms" : "and counting"]);
 const openProjects = D.projects.filter((p) => p.status === "active" || p.status === "planned");
 if (D.projects.length) stats.push(["Projects", int(openProjects.length), `${D.projects.filter((p) => p.status === "funded").length} funded so far`]);
-if (g.contributions) stats.push(["Contributions", int(g.contributions.total), "on GitHub this year"]);
+if (g.contributions) stats.push(["Contributions", int(g.contributions.total), "on GitHub in the last year"]);
+// While there's little funding data, round the strip out with real GitHub numbers.
+const repoList = g.repos || [];
+if (stats.length < 4 && P) stats.push(["Public repos", int(P.repos), `${int(repoList.reduce((t, r) => t + (r.stars || 0), 0))} stars earned`]);
+if (stats.length < 4 && P) stats.push(["Followers", int(P.followers), `following ${int(P.following)}`]);
 if (stats.length) {
   both("stats", (t) => {
     const cw = 1280 / stats.length;

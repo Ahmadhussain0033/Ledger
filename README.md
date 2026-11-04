@@ -5,7 +5,7 @@
 <a href="https://ahmadhussain0033.github.io/Ledger/"><img alt="Live site" src="https://img.shields.io/badge/live-site-111111?style=for-the-badge&labelColor=2b2b2b"></a>
 <a href="https://github.com/ahmadhussain0033"><img alt="GitHub followers" src="https://img.shields.io/github/followers/ahmadhussain0033?style=for-the-badge&logo=github&logoColor=white&label=followers&color=111111&labelColor=2b2b2b"></a>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/stats-dark.svg"><img alt="Contributions: 45" src="docs/readme/stats-light.svg" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/stats-dark.svg"><img alt="Contributions: 45, Public repos: 5, Followers: 0" src="docs/readme/stats-light.svg" width="100%"></picture>
 
 </div>
 
