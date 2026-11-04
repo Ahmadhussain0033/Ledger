@@ -5,7 +5,7 @@
 <a href="https://ahmadhussain0033.github.io/Ledger/"><img alt="Live site" src="https://img.shields.io/badge/live-site-111111?style=for-the-badge&labelColor=2b2b2b"></a>
 <a href="https://github.com/ahmadhussain0033"><img alt="GitHub followers" src="https://img.shields.io/github/followers/ahmadhussain0033?style=for-the-badge&logo=github&logoColor=white&label=followers&color=111111&labelColor=2b2b2b"></a>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/stats-dark.svg"><img alt="Contributions: 45, Public repos: 5, Followers: 0" src="docs/readme/stats-light.svg" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/stats-dark.svg"><img alt="Contributions: 47, Public repos: 6, Followers: 0" src="docs/readme/stats-light.svg" width="100%"></picture>
 
 </div>
 
@@ -13,7 +13,7 @@
 ## `01` · On GitHub
 
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/contributions-dark.svg"><img alt="45 contributions in the last year" src="docs/readme/contributions-light.svg" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/contributions-dark.svg"><img alt="47 contributions in the last year" src="docs/readme/contributions-light.svg" width="100%"></picture>
 
 
 <table>
@@ -33,7 +33,7 @@
 
 <p>
 <a href="https://github.com/Ahmadhussain0033"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-%40Ahmadhussain0033-111111?style=for-the-badge&labelColor=2b2b2b&logo=github&logoColor=white"></a>
-<a href="https://www.instagram.com/therealahmadhussain/"><img alt="Instagram" src="https://img.shields.io/badge/Instagram-therealahmadhussain-111111?style=for-the-badge&labelColor=2b2b2b&logo=instagram&logoColor=white"></a>
+<a href="https://www.instagram.com/theahemod/"><img alt="Instagram" src="https://img.shields.io/badge/Instagram-theahemod-111111?style=for-the-badge&labelColor=2b2b2b&logo=instagram&logoColor=white"></a>
 </p>
 
 
