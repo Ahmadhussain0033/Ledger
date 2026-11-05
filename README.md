@@ -64,8 +64,8 @@
 <td width="50%" valign="top"><a href="https://github.com/Ahmadhussain0033/Ledger"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/repo-1-dark.svg"><img alt="Ledger: " src="docs/readme/repo-1-light.svg" width="100%"></picture></a></td>
 </tr>
 <tr>
-<td width="50%" valign="top"><a href="https://github.com/Ahmadhussain0033/Ahmads-Game-of-Information"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/repo-2-dark.svg"><img alt="Ahmads-Game-of-Information: A Conways Game of Life spin for Information Theory and what learning is at its Heart" src="docs/readme/repo-2-light.svg" width="100%"></picture></a></td>
-<td width="50%" valign="top"><a href="https://github.com/Ahmadhussain0033/WIG"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/repo-3-dark.svg"><img alt="WIG: Fundamental Theory and Approach at Compression" src="docs/readme/repo-3-light.svg" width="100%"></picture></a></td>
+<td width="50%" valign="top"><a href="https://github.com/Ahmadhussain0033/About-Me"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/repo-2-dark.svg"><img alt="About-Me: Me and All the Information I want" src="docs/readme/repo-2-light.svg" width="100%"></picture></a></td>
+<td></td>
 </tr>
 </table>
 

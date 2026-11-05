@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-05T06:12:12.555Z",
+  "generatedAt": "2026-11-05T06:29:45.487Z",
   "github": {
-    "updatedAt": "2026-11-05T06:12:12.555Z",
+    "updatedAt": "2026-11-05T06:29:45.487Z",
     "profile": {
       "login": "Ahmadhussain0033",
       "name": "Ahmad Hussain",
@@ -35,7 +35,7 @@
         "stars": 0,
         "forks": 0,
         "topics": [],
-        "pushedAt": "2026-11-05T06:12:04Z",
+        "pushedAt": "2026-11-05T06:29:36Z",
         "archived": false
       },
       {
@@ -2193,29 +2193,18 @@
         "homepage": null,
         "stars": 0,
         "forks": 0,
-        "pushedAt": "2026-11-05T06:12:04Z",
+        "pushedAt": "2026-11-05T06:29:36Z",
         "archived": false,
         "language": "JavaScript"
       },
       {
-        "name": "Ahmads-Game-of-Information",
-        "description": "A Conways Game of Life spin for Information Theory and what learning is at its Heart",
-        "url": "https://github.com/Ahmadhussain0033/Ahmads-Game-of-Information",
-        "homepage": null,
-        "stars": 1,
-        "forks": 0,
-        "pushedAt": "2026-10-30T20:22:52Z",
-        "archived": false,
-        "language": null
-      },
-      {
-        "name": "WIG",
-        "description": "Fundamental Theory and Approach at Compression",
-        "url": "https://github.com/Ahmadhussain0033/WIG",
-        "homepage": null,
+        "name": "About-Me",
+        "description": "Me and All the Information I want",
+        "url": "https://github.com/Ahmadhussain0033/About-Me",
+        "homepage": "",
         "stars": 0,
         "forks": 0,
-        "pushedAt": "2026-10-31T18:43:25Z",
+        "pushedAt": "2026-11-04T18:46:49Z",
         "archived": false,
         "language": null
       }
