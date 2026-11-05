@@ -5,7 +5,14 @@
   "use strict";
 
   const C = window.LEDGER_CONFIG || {};
-  const SRC = C.sources || {};
+  // ?preview fills sections you haven't connected with PUBLIC example accounts so you can see the layout.
+  // It never runs without the URL flag, and a banner says so.
+  const PREVIEW = new URLSearchParams(location.search).has("preview");
+  const EXAMPLES = { opencollective: "babel", liberapay: "Liberapay", bitcoin: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", ethereum: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" };
+  const SRC = { ...(C.sources || {}) };
+  if (PREVIEW) for (const [k, v] of Object.entries(EXAMPLES)) if (!SRC[k]) SRC[k] = v;
+  const DISCORD_ID = C.discordServerId || (PREVIEW ? "81384788765712384" : "");
+  const TZ = C.timezone || (PREVIEW ? Intl.DateTimeFormat().resolvedOptions().timeZone : "");
   const L = window.LedgerSources;
   const LOCALE = C.locale || "en-US";
   const BASE = String(C.currency || "USD").toUpperCase();
@@ -85,20 +92,35 @@
     mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
     x: '<path d="M6 6l12 12M18 6 6 18"/>',
     dot: '<circle cx="12" cy="12" r="4"/>',
+    trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 21h8M9 17h6"/>',
+    flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/>',
+    receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
+    file: '<path d="M14 3H6v18h12V7zM14 3v4h4"/>',
+    spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
+    left: '<path d="m15 6-6 6 6 6"/>', right: '<path d="m9 6 6 6-6 6"/>',
   };
-  const icon = (name, cls = "i") => { const s = svgEl("svg", { viewBox: "0 0 24 24", class: cls, "aria-hidden": "true" }); s.innerHTML = ICONS[name] || ICONS.link; return s; };
+  // icon("receipt") → Lucide line icon · icon("brand:discord") → Simple Icons logo (see scripts/build-icons.mjs)
+  const LIB = window.LEDGER_ICONS || { ui: {}, brand: {} };
+  const icon = (name, cls = "i") => {
+    const brand = String(name).startsWith("brand:") ? LIB.brand[name.slice(6)] : null;
+    const s = svgEl("svg", { viewBox: "0 0 24 24", class: brand ? `${cls} brand` : cls, "aria-hidden": "true" });
+    s.innerHTML = brand || LIB.ui[name] || ICONS[name] || LIB.ui.link || ICONS.link;
+    return s;
+  };
 
   /* ───────────── source catalogue ───────────── */
   const META = {
-    opencollective: { label: "Open Collective", icon: "heart", kind: "recurring", keyless: true, link: (v) => `https://opencollective.com/${v}/donate`, handle: (v) => `opencollective.com/${v}` },
-    liberapay: { label: "Liberapay", icon: "repeat", kind: "recurring", keyless: true, link: (v) => `https://liberapay.com/${v}/donate`, handle: (v) => `liberapay.com/${v}` },
-    githubSponsors: { label: "GitHub Sponsors", icon: "code", kind: "recurring", link: () => `https://github.com/sponsors/${C.github}`, handle: () => `github.com/sponsors/${C.github}`, secret: "SPONSORS_TOKEN (optional, for amounts)" },
-    patreon: { label: "Patreon", icon: "repeat", kind: "recurring", link: (v) => `https://www.patreon.com/${v}`, handle: (v) => `patreon.com/${v}`, secret: "PATREON_TOKEN" },
-    buymeacoffee: { label: "Buy Me a Coffee", icon: "coffee", kind: "one-time", link: (v) => `https://www.buymeacoffee.com/${v}`, handle: (v) => `buymeacoffee.com/${v}`, secret: "BMC_TOKEN" },
-    kofi: { label: "Ko-fi", icon: "coffee", kind: "one-time", link: (v) => `https://ko-fi.com/${v}`, handle: (v) => `ko-fi.com/${v}`, secret: "Ko-fi relay" },
-    paypal: { label: "PayPal", icon: "wallet", kind: "one-time", linkOnly: true, link: (v) => `https://paypal.me/${v}`, handle: (v) => `paypal.me/${v}` },
-    bitcoin: { label: "Bitcoin", icon: "coin", kind: "crypto", keyless: true, address: true, link: (v) => `https://mempool.space/address/${v}` },
-    ethereum: { label: "Ethereum", icon: "coin", kind: "crypto", keyless: true, address: true, link: (v) => `https://eth.blockscout.com/address/${v}` },
+    opencollective: { label: "Open Collective", icon: "brand:opencollective", kind: "recurring", keyless: true, link: (v) => `https://opencollective.com/${v}/donate`, handle: (v) => `opencollective.com/${v}` },
+    liberapay: { label: "Liberapay", icon: "brand:liberapay", kind: "recurring", keyless: true, link: (v) => `https://liberapay.com/${v}/donate`, handle: (v) => `liberapay.com/${v}` },
+    githubSponsors: { label: "GitHub Sponsors", icon: "brand:githubsponsors", kind: "recurring", link: () => `https://github.com/sponsors/${C.github}`, handle: () => `github.com/sponsors/${C.github}`, secret: "SPONSORS_TOKEN (optional, for amounts)" },
+    patreon: { label: "Patreon", icon: "brand:patreon", kind: "recurring", link: (v) => `https://www.patreon.com/${v}`, handle: (v) => `patreon.com/${v}`, secret: "PATREON_TOKEN" },
+    buymeacoffee: { label: "Buy Me a Coffee", icon: "brand:buymeacoffee", kind: "one-time", link: (v) => `https://www.buymeacoffee.com/${v}`, handle: (v) => `buymeacoffee.com/${v}`, secret: "BMC_TOKEN" },
+    kofi: { label: "Ko-fi", icon: "brand:kofi", kind: "one-time", link: (v) => `https://ko-fi.com/${v}`, handle: (v) => `ko-fi.com/${v}`, secret: "Ko-fi relay" },
+    paypal: { label: "PayPal", icon: "brand:paypal", kind: "one-time", linkOnly: true, link: (v) => `https://paypal.me/${v}`, handle: (v) => `paypal.me/${v}` },
+    bitcoin: { label: "Bitcoin", icon: "brand:bitcoin", kind: "crypto", keyless: true, address: true, link: (v) => `https://mempool.space/address/${v}` },
+    ethereum: { label: "Ethereum", icon: "brand:ethereum", kind: "crypto", keyless: true, address: true, link: (v) => `https://eth.blockscout.com/address/${v}` },
   };
   const CONFIGURED = Object.keys(META).filter((id) => (id === "githubSponsors" ? SRC[id] && C.github : SRC[id]));
   const KEYLESS = {
@@ -117,7 +139,7 @@
 
   async function loadGitHub() {
     if (!C.github && !C.repo) return;
-    try { state.ghLive = await L.github({ login: C.github, repo: C.repo, label: C.projectLabel || "funding" }); }
+    try { state.ghLive = await L.github({ login: C.github, repo: C.repo, label: C.projectLabel || "funding", expenseLabel: C.expenseLabel || "expense" }); }
     catch (e) { state.ghLive = { errors: [e.message] }; }
     state.ghAt = Date.now();
   }
@@ -132,7 +154,7 @@
         try { state.live[id] = await KEYLESS[id](SRC[id]); delete state.liveErr[id]; }
         catch (e) { state.liveErr[id] = e.message; }
       }),
-      C.discordServerId ? L.discord(C.discordServerId).then((d) => { state.discord = d; state.discordErr = null; }, (e) => { state.discordErr = e.message; }) : null,
+      DISCORD_ID ? L.discord(DISCORD_ID).then((d) => { state.discord = d; state.discordErr = null; }, (e) => { state.discordErr = e.message; }) : null,
       L.fiatRates().then((r) => { Object.assign(state.usdPer, r.usdPer); state.fxOk = true; }, () => {}),
     ]);
   }
@@ -143,10 +165,11 @@
     const errs = (live.errors || []).join(" ");
     const pick = (key, errKey) => (live[key] && (Array.isArray(live[key]) ? !errs.includes(errKey) : true) ? { v: live[key], mode: "live" }
       : snap[key] ? { v: snap[key], mode: "snapshot" } : { v: Array.isArray(live[key]) ? live[key] : null, mode: errs.includes(errKey) ? "error" : "live" });
-    const profile = pick("profile", "profile:"), projects = pick("projects", "projects:"), drives = pick("drives", "drives:"), socials = pick("socials", "socials:"), repos = pick("repos", "repos:");
+    const profile = pick("profile", "profile:"), projects = pick("projects", "projects:"), drives = pick("drives", "drives:"), socials = pick("socials", "socials:"), repos = pick("repos", "repos:"), expenses = pick("expenses", "expenses:");
     return {
       profile: profile.v, projects: projects.v || [], drives: drives.v || [], socials: socials.v || [], repos: repos.v || [],
       contributions: snap.contributions || null, pinned: snap.pinned || [],
+      expenses: expenses.v || [],
       status: snap.status || null,
       mode: profile.mode === "live" && projects.mode === "live" ? "live" : profile.v || projects.v ? "snapshot" : errs ? "error" : "pending",
       error: errs || null,
@@ -203,6 +226,17 @@
   /* ───────────── owner setup checklist ───────────── */
   function renderSetup(D) {
     const box = $("#setup");
+    if (PREVIEW) {
+      box.hidden = false;
+      const used = Object.keys(EXAMPLES).filter((k) => !(C.sources || {})[k]).map((k) => META[k].label);
+      box.replaceChildren(el("article", { class: "card setup-card preview-card" },
+        el("div", { class: "card-head" },
+          el("div", {}, el("div", { class: "tile-label" }, "Preview mode"),
+            el("div", { class: "tile-strong" }, "Showing how every section looks")),
+          el("a", { class: "btn btn-ghost btn-sm", href: location.pathname }, "Exit preview")),
+        el("p", { class: "fine" }, `Sections you haven't connected are filled from public example accounts (${used.join(", ")}${!C.discordServerId ? ", the Discord API server" : ""}). GitHub-based sections without data show their empty layout. Your real page, without ?preview, never shows any of this.`)));
+      return;
+    }
     if (!OWNER) return;
     const items = [
       [!!D.gh.profile, "GitHub profile loads", D.gh.profile ? `@${D.gh.profile.login}` : D.gh.error || "Set github in ledger.config.js"],
@@ -211,10 +245,11 @@
       [CONFIGURED.length > 0, "Donation sources", CONFIGURED.length ? CONFIGURED.map((id) => META[id].label).join(", ") : "Fill in sources in ledger.config.js"],
       ...D.srcs.filter((s) => s.mode === "error").map((s) => [false, s.meta.label, s.error + (s.meta.secret ? ` · needs ${s.meta.secret}` : "")]),
       [!!state.snap, "Sync snapshot", state.snap ? `Last changed ${ago(state.snap.generatedAt)}` : `data/snapshot.json ${state.snapErr || "missing"}: the "Sync ledger" Action creates it`],
+      [D.expenses.length > 0, "Expenses & receipts", D.expenses.length ? `${D.expenses.length} expense(s)` : `Open an issue labelled "${C.expenseLabel || "expense"}" with an "amount: $…" line and attach the receipt`],
       [!!(state.snap && state.snap.youtube), "Videos", C.youtube ? (state.snap && state.snap.youtube ? `${state.snap.youtube.videos.length} videos from ${state.snap.youtube.title}` : (state.snap && state.snap.errors && state.snap.errors.youtube) || "Waiting for the next sync") : "Optional: set youtube (channel ID or @handle)"],
       [!!D.gh.contributions, "Contribution heatmap", D.gh.contributions ? `${intFmt(D.gh.contributions.total)} contributions` : "Filled in by the sync Action"],
-      [!!C.timezone, "Local-time widget", C.timezone || "Optional: set timezone"],
-      [!!C.discordServerId, "Discord widget", C.discordServerId ? (state.discordErr ? `Error: ${state.discordErr}` : "Connected") : "Optional: set discordServerId"],
+      [!!TZ, "Local-time widget", TZ || "Optional: set timezone"],
+      [!!DISCORD_ID, "Discord widget", DISCORD_ID ? (state.discordErr ? `Error: ${state.discordErr}` : "Connected") : "Optional: set discordServerId"],
     ];
     const todo = items.filter((i) => !i[0]).length;
     box.hidden = false;
@@ -225,7 +260,7 @@
         el("button", { class: "icon-btn", "aria-label": "Hide setup", onclick: () => { box.hidden = true; } }, icon("x"))),
       el("ul", { class: "setup-list" }, items.map(([ok, label, detail]) =>
         el("li", { class: ok ? "ok" : "" }, el("span", { class: "check" }, icon(ok ? "check" : "dot")), el("b", {}, label), el("span", { class: "muted" }, detail)))),
-      el("p", { class: "fine" }, "Shown on localhost, file:// or with ?setup in the URL. Visitors never see this."),
+      el("p", { class: "fine" }, "Shown on localhost, file:// or with ?setup in the URL. Visitors never see this. ", el("a", { href: "?preview", class: "link-arrow" }, "Preview every section →")),
     ));
   }
 
@@ -319,7 +354,7 @@
     }
 
     // Clock
-    if (C.timezone) tiles.push(tile("tile-clock", go("clock", "Switch 12/24-hour time"), el("div", { class: "tile-label" }, "My local time"),
+    if (TZ) tiles.push(tile("tile-clock", go("clock", "Switch 12/24-hour time"), el("div", { class: "tile-label" }, "My local time"),
       el("div", { class: "clock mono", id: "clock" }, "--:--"), el("div", { class: "tile-sub", id: "clockSub" })));
 
     // GitHub
@@ -333,11 +368,11 @@
     }
 
     // Discord
-    if (C.discordServerId) {
+    if (DISCORD_ID) {
       const d = state.discord, invite = safeUrl(C.discordInvite) || safeUrl(d && d.invite) || safeUrl(state.snap && state.snap.discord && state.snap.discord.invite);
       tiles.push(tile("tile-discord", go(invite ? "discord" : "#contact", "Discord community"),
         el("div", { class: "tile-label" }, "Community"),
-        el("div", { class: "discord-row" }, el("span", { class: "glyph" }, icon("discord")),
+        el("div", { class: "discord-row" }, el("span", { class: "glyph" }, icon("brand:discord")),
           el("div", {}, el("div", { class: "tile-strong" }, d ? d.name : state.discordErr ? "Discord" : skel("70%")),
             el("div", { class: "tile-sub" }, d ? [el("span", { class: "online-dot" }), `${intFmt(d.online)} online now`] : state.discordErr ? "Widget unavailable" : skel("50%")))),
         invite ? el("a", { class: "btn btn-ghost btn-sm", href: invite, target: "_blank", rel: "noopener" }, "Join", icon("arrow")) : null));
@@ -377,16 +412,16 @@
   let clockFmt, clock12 = false;
   function tickClock() {
     const clock = $("#clock"); if (!clock) return;
-    try { clockFmt = clockFmt || new Intl.DateTimeFormat(LOCALE, { timeZone: C.timezone, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: clock12 ? "h12" : "h23" }); }
+    try { clockFmt = clockFmt || new Intl.DateTimeFormat(LOCALE, { timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: clock12 ? "h12" : "h23" }); }
     catch { clock.textContent = "Invalid timezone"; return; }
     const now = new Date();
     const parts = Object.fromEntries(clockFmt.formatToParts(now).map((x) => [x.type, x.value]));
     clock.replaceChildren(`${parts.hour}:${parts.minute}`, el("span", { class: "sec" }, `:${parts.second}${clock12 && parts.dayPeriod ? " " + parts.dayPeriod : ""}`));
-    const h = Number(new Intl.DateTimeFormat("en-US", { timeZone: C.timezone, hour: "numeric", hourCycle: "h23" }).format(now)) % 24;
+    const h = Number(new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "numeric", hourCycle: "h23" }).format(now)) % 24;
     const part = h < 5 ? "Night" : h < 12 ? "Morning" : h < 17 ? "Afternoon" : h < 21 ? "Evening" : "Night";
     let rel = "";
     try {
-      const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: C.timezone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(now).map((x) => [x.type, x.value]));
+      const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(now).map((x) => [x.type, x.value]));
       const theirs = (Date.UTC(+p.year, p.month - 1, +p.day, +p.hour, +p.minute) - Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes())) / 6e4;
       const diff = Math.round(((theirs + now.getTimezoneOffset()) / 60) * 10) / 10;
       rel = diff === 0 ? "same time as you" : `${Math.abs(diff)}h ${diff > 0 ? "ahead of" : "behind"} you`;
@@ -424,7 +459,7 @@
     seg.hidden = present.length < 2;
     seg.replaceChildren(...["all", ...present].map((f) => el("button", { role: "tab", class: f === projectFilter ? "on" : "", "data-filter": f }, f === "all" ? "All" : STATUS[f] || f)));
 
-    if (!showSection("#projects", list.length > 0)) return;
+    if (!showSection("#projects", list.length > 0, ghost("#projectGrid", 3, `Projects appear here: open an issue in ${C.repo} labelled "${C.projectLabel || "funding"}" with a "goal: $…" line.`))) return;
     grid.replaceChildren(...list.map((p) => {
       const pct = p.goal ? Math.min(100, (p.raised / p.goal) * 100) : null;
       const fill = el("i", { style: `width:${state.prev["pj" + p.number] ?? 0}%` });
@@ -480,6 +515,7 @@
         p.payments.length ? el("button", { class: "btn btn-ghost", onclick: () => { $("#projectModal").close(); tableState.project = p.tag; $("#tableProject").value = p.tag; renderTable(current, true); $("#supporters").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }); } }, "See in ledger") : null),
     ));
     $("#projectModal").showModal();
+    if (pct != null && pct >= 100) setTimeout(() => { const r = $("#projectModal .modal-inner").getBoundingClientRect(); celebrate(r.left + r.width / 2, r.top + 90, 34); }, 250);
     if (pct != null) requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = `${pct}%`; }));
   }
 
@@ -488,7 +524,7 @@
     const list = $("#driveList");
     const order = { live: 0, upcoming: 1, ended: 2 };
     const drives = D.drives.slice().sort((a, b) => order[a.phase] - order[b.phase]);
-    if (!showSection("#drives", drives.some((d) => d.phase !== "ended") || D.goals.length > 0)) return;
+    if (!showSection("#drives", drives.some((d) => d.phase !== "ended") || D.goals.length > 0, ghost("#driveList", 1, "Drives appear here: create a milestone with a due date and a \"goal: $…\" line.", "one"))) return;
     const cards = drives.map((d) => {
       const pct = d.goal ? Math.min(100, (d.raised / d.goal) * 100) : null;
       const fill = el("i", { style: `width:${state.prev["dr" + d.number] ?? 0}%` });
@@ -687,6 +723,181 @@
     $("#tableMore").hidden = rows.length <= tableState.shown;
   }
 
+  /* ───────────── celebration (particles fly out and fade; no bounce) ───────────── */
+  function celebrate(x, y, n = 26) {
+    if (REDUCED) return;
+    const colors = ["var(--good)", "var(--ink)", "var(--muted)", "var(--good)", "var(--warn)"];
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n + Math.random() * 0.5, d = 60 + Math.random() * 120, sz = 4 + Math.random() * 5;
+      const p = el("i", { class: "spark", style: `left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;background:${colors[i % colors.length]};border-radius:${i % 3 ? "50%" : "2px"}` });
+      document.body.append(p);
+      const anim = p.animate([
+        { transform: "translate(-50%,-50%) scale(1)", opacity: 1 },
+        { transform: `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d}px)) scale(.15)`, opacity: 0 },
+      ], { duration: 900 + Math.random() * 600, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+      anim.onfinish = () => p.remove();
+    }
+  }
+
+  /* ───────────── Wins: milestones reached ───────────── */
+  const WIN_ICON = { first: "heart", raised: "coin", donors: "users", project: "check", drive: "flag", goal: "trophy" };
+  const winTitle = (m) => ({
+    first: "First donation", raised: `${money(m.threshold)} raised`, donors: `${intFmt(m.threshold)} donors`,
+    project: `Funded: ${m.title}`, drive: `Drive goal reached: ${m.title}`, goal: `${m.source} goal reached`,
+  }[m.kind] || m.kind);
+  const winDetail = (m) => ({
+    first: `${m.name || "An anonymous supporter"} via ${m.source}`, raised: "Counted from itemised payments",
+    donors: "People who've chipped in", project: m.goal ? `${money(m.goal)} goal met` : "Marked funded on GitHub",
+    drive: `${money(m.goal)} goal met`, goal: m.title,
+  }[m.kind] || "");
+  const isNew = (m) => !m.date || Date.now() - new Date(m.date).getTime() < 30 * 864e5;
+  let seenWins = new Set();
+  try { seenWins = new Set(JSON.parse(localStorage.getItem("ledger-seen-wins") || "[]")); } catch {}
+  let winsObserved = false;
+
+  function renderWins(D) {
+    if (!showSection("#wins", D.milestones.length > 0)) return;
+    // Next milestones
+    const nexts = [];
+    if (D.next.raised) nexts.push(["Next: " + money(D.next.raised.threshold) + " raised", D.next.raised, (v) => money(Math.round(v))]);
+    if (D.next.donors) nexts.push(["Next: " + intFmt(D.next.donors.threshold) + " donors", D.next.donors, (v) => intFmt(v)]);
+    $("#winNext").replaceChildren(...nexts.map(([label, n, f]) => {
+      const pct = Math.max(0, Math.min(1, (n.current - n.prev) / (n.threshold - n.prev)));
+      const fill = el("i");
+      requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = `${pct * 100}%`; }));
+      return el("article", { class: `card win-next${entering("wn" + label)}` },
+        el("div", { class: "tile-label" }, label),
+        el("div", { class: "progress-nums" }, el("strong", { class: "mono" }, f(n.current)), el("span", { class: "mono muted" }, `${Math.round(pct * 100)}%`)),
+        el("div", { class: "bar thick" }, fill));
+    }));
+    const q = $("#winSearch").value.trim().toLowerCase();
+    const list = D.milestones.filter((m) => !q || `${winTitle(m)} ${winDetail(m)}`.toLowerCase().includes(q));
+    $("#winList").replaceChildren(...(list.length ? list.map((m) => el("li", { class: `win${isNew(m) ? " is-new" : ""}`, "data-win": m.id },
+      el("span", { class: "win-dot" }, icon(WIN_ICON[m.kind] || "spark")),
+      el("article", { class: "card win-card clickable", tabindex: "0", role: "button", "aria-label": winTitle(m),
+        onclick: (e) => { celebrate(e.clientX || e.target.getBoundingClientRect().left + 40, e.clientY || e.target.getBoundingClientRect().top + 20); },
+        onkeydown: (e) => { if (e.key === "Enter") { const r = e.currentTarget.getBoundingClientRect(); celebrate(r.left + 40, r.top + r.height / 2); } } },
+        el("div", { class: "win-top" },
+          el("span", { class: "win-date mono" }, m.date ? fmtDate(m.date) : "Now"),
+          isNew(m) ? el("span", { class: "badge", "data-s": "funded" }, "New") : null),
+        el("h3", {}, winTitle(m)),
+        el("p", { class: "tile-sub" }, winDetail(m)),
+        safeUrl(m.url) ? el("a", { class: "link-arrow tile-sub", href: safeUrl(m.url), target: "_blank", rel: "noopener", onclick: (e) => e.stopPropagation() }, "Open ↗") : null)))
+      : [el("li", { class: "tile-sub win-empty" }, "No milestones match that search.")]));
+
+    // Celebrate a recent, unseen milestone once, when the section first comes into view.
+    if (!winsObserved && "IntersectionObserver" in window) {
+      winsObserved = true;
+      const io = new IntersectionObserver((es) => {
+        if (!es.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        const fresh = current.milestones.find((m) => isNew(m) && !seenWins.has(m.id));
+        if (!fresh) return;
+        const card = $(`[data-win="${fresh.id}"] .win-card`);
+        if (card) { const r = card.getBoundingClientRect(); setTimeout(() => celebrate(r.left + r.width / 2, r.top + r.height / 2, 34), 300); }
+        current.milestones.filter(isNew).forEach((m) => seenWins.add(m.id));
+        try { localStorage.setItem("ledger-seen-wins", JSON.stringify([...seenWins].slice(-200))); } catch {}
+      }, { threshold: 0.4 });
+      io.observe($("#winList"));
+    }
+  }
+
+  /* ───────────── Donor directory ───────────── */
+  let donorShown = 24;
+  function renderDonors(D) {
+    const box = $("#donorsCard");
+    const anon = D.payments.filter((p) => !p.name);
+    box.hidden = !(D.leaders.length || anon.length);
+    if (box.hidden) return;
+    const q = $("#donorSearch").value.trim().toLowerCase();
+    const sort = $("#donorSort").value;
+    let list = D.leaders.filter((d) => !q || `${d.name} ${d.sources.join(" ")}`.toLowerCase().includes(q));
+    list = list.slice().sort(sort === "recent" ? (a, b) => String(b.last || "").localeCompare(String(a.last || "")) : sort === "name" ? (a, b) => a.name.localeCompare(b.name) : (a, b) => b.total - a.total);
+    const cards = list.slice(0, donorShown).map((d) => el("article", { class: "donor" },
+      el("span", { class: "donor-av" }, initials(d.name)),
+      el("div", { class: "donor-main" },
+        el("b", {}, highlight(d.name, q)),
+        el("span", { class: "tile-sub" }, `${d.count} gift${d.count === 1 ? "" : "s"} · ${d.sources.join(", ")}${d.first ? ` · since ${fmtDate(d.first)}` : ""}`)),
+      el("span", { class: "donor-amt mono" }, money(Math.round(d.total)), d.monthly ? el("small", {}, `${money(Math.round(d.monthly))}/mo`) : null)));
+    if (anon.length && !q) cards.push(el("article", { class: "donor anon-card" },
+      el("span", { class: "donor-av" }, "?"),
+      el("div", { class: "donor-main" }, el("b", {}, "Anonymous supporters"), el("span", { class: "tile-sub" }, `${anon.length} gift${anon.length === 1 ? "" : "s"}, names kept private`)),
+      el("span", { class: "donor-amt mono" }, money(Math.round(anon.reduce((t, p) => t + (p.value || 0), 0))))));
+    $("#donorGrid").replaceChildren(...(cards.length ? cards : [el("p", { class: "tile-sub" }, "No donors match that search.")]));
+    $("#donorCount").textContent = `${intFmt(D.leaders.length)} named donor${D.leaders.length === 1 ? "" : "s"}`;
+    $("#donorMore").hidden = list.length <= donorShown;
+  }
+
+  /* ───────────── Spending & receipts ───────────── */
+  let spendShown = 15;
+  function renderSpending(D) {
+    if (!showSection("#spending", D.expenses.length > 0, ghost("#spendList", 3, `Expenses appear here: open an issue labelled "${C.expenseLabel || "expense"}" with "amount: $…" and drop the receipt photo or PDF into it.`))) {
+      if (PREVIEW) { $("#spendStats").replaceChildren(); $("#spendCats").replaceChildren(); $("#spendFoot").textContent = ""; }
+      return;
+    }
+    const all = D.expenses.flatMap((e) => e.receipts || []);
+    const attached = all.filter((r) => r.kind !== "link").length, linked = all.length - attached;
+    const receipts = all.length;
+    const stat = (k, v, sub) => el("div", { class: "spend-stat" }, el("div", { class: "tile-label" }, k), el("div", { class: "mono spend-num" }, v), sub ? el("div", { class: "tile-sub" }, sub) : null);
+    $("#spendStats").replaceChildren(
+      stat("Spent", money(Math.round(D.spent)), D.raised > 0 ? `${Math.round((D.spent / D.raised) * 100)}% of what's been raised` : null),
+      stat("Expenses", intFmt(D.expenses.length), D.expensesPartial ? "latest only" : null),
+      stat("Receipts", intFmt(receipts), [attached && `${intFmt(attached)} attached`, linked && `${intFmt(linked)} linked`].filter(Boolean).join(" · ") || null),
+      stat("Biggest category", D.byCategory[0] ? D.byCategory[0].category : "–", D.byCategory[0] ? money(Math.round(D.byCategory[0].value)) : null));
+    const cats = D.byCategory.slice(0, 6), totalC = cats.reduce((t, c) => t + c.value, 0) || 1;
+    $("#spendCats").replaceChildren(
+      el("div", { class: "lang-bar cat-bar" }, cats.map((c, i) => el("i", { style: `flex:${Math.max(c.value, totalC * 0.01)};--o:${1 - i * 0.14}`, title: `${c.category}: ${money(Math.round(c.value))}` }))),
+      el("ul", { class: "lang-list" }, cats.map((c, i) => el("li", {}, el("span", { class: "lang-dot", style: `--o:${1 - i * 0.14}` }), c.category, el("span", { class: "muted mono" }, money(Math.round(c.value)))))));
+
+    syncSelect($("#spendCategory"), [["", "All categories"], ...D.byCategory.map((c) => [c.category, c.category])]);
+    const projs = [...new Map(D.expenses.filter((e) => e.project).map((e) => [e.project.tag, e.project.title]))];
+    syncSelect($("#spendProject"), [["", "All projects"], ...projs]);
+    const q = $("#spendSearch").value.trim().toLowerCase(), cf = $("#spendCategory").value, pf = $("#spendProject").value;
+    const rows = D.expenses.filter((e) => (!cf || (e.category || "uncategorised") === cf) && (!pf || (e.project && e.project.tag === pf))
+      && (!q || [e.title, e.vendor, e.category, e.note, e.sourceLabel, e.project && e.project.title].some((v) => String(v || "").toLowerCase().includes(q))));
+    $("#spendList").replaceChildren(...(rows.length ? rows.slice(0, spendShown).map((e) => el("article", { class: "expense" },
+      el("span", { class: "exp-date mono" }, fmtDate(e.date)),
+      el("div", { class: "exp-main" },
+        el("b", {}, highlight(e.title, q)),
+        el("span", { class: "tile-sub" }, [e.vendor && highlight(e.vendor, q), e.project && `for ${e.project.title}`, e.sourceLabel].filter(Boolean).flatMap((x, i) => (i ? [" · ", x] : [x]))),
+        e.note ? el("span", { class: "exp-note" }, excerpt(e.note, 140)) : null),
+      el("span", { class: "tag" }, e.category || "uncategorised"),
+      el("div", { class: "exp-receipts" }, (e.receipts || []).length
+        ? el("button", { class: "copy-mini", onclick: () => openReceipt(e, 0), "aria-label": `View receipt for ${e.title}` }, icon(e.receipts[0].kind === "image" ? "image" : e.receipts[0].kind === "file" ? "file" : "receipt"), e.receipts.length > 1 ? `${e.receipts.length}` : "Receipt")
+        : el("span", { class: "tile-sub" }, "No receipt")),
+      el("span", { class: "exp-amt mono" }, e.currency !== BASE && e.value != null ? `≈ ${money(e.value)}` : money(e.amount, e.currency))))
+      : [el("p", { class: "tile-sub", style: "padding:20px" }, "Nothing matches that search.")]));
+    const total = rows.reduce((t, e) => t + (e.value || 0), 0);
+    $("#spendFoot").textContent = rows.length ? `${Math.min(spendShown, rows.length)} of ${rows.length} · ${money(Math.round(total))}` : "";
+    $("#spendMore").hidden = rows.length <= spendShown;
+  }
+
+  let receiptCtx = null;
+  function openReceipt(e, i) {
+    const r = e.receipts[i]; if (!r) return;
+    if (r.kind !== "image") { window.open(safeUrl(r.url), "_blank", "noopener"); return; }
+    receiptCtx = { e, i };
+    const n = e.receipts.length;
+    $("#receiptBody").replaceChildren(
+      el("div", { class: "receipt-stage" },
+        el("img", { src: safeUrl(r.url), alt: `${r.name} for ${e.title}` }),
+        n > 1 ? el("button", { class: "icon-btn rc-prev", "aria-label": "Previous receipt", onclick: () => openReceipt(e, (i - 1 + n) % n) }, icon("left")) : null,
+        n > 1 ? el("button", { class: "icon-btn rc-next", "aria-label": "Next receipt", onclick: () => openReceipt(e, (i + 1) % n) }, icon("right")) : null),
+      el("div", { class: "receipt-meta" },
+        el("div", {}, el("b", {}, e.title), el("div", { class: "tile-sub" }, [fmtDate(e.date), e.vendor, n > 1 ? `${i + 1} of ${n}` : null].filter(Boolean).join(" · "))),
+        el("span", { class: "mono exp-amt" }, money(e.amount, e.currency))),
+      el("div", { class: "pm-actions" },
+        el("a", { class: "btn btn-ghost btn-sm", href: safeUrl(r.url), target: "_blank", rel: "noopener" }, "Open original", icon("arrow")),
+        safeUrl(e.url) ? el("a", { class: "btn btn-ghost btn-sm", href: safeUrl(e.url), target: "_blank", rel: "noopener" }, "View on GitHub", icon("arrow")) : null));
+    const m = $("#receiptModal"); if (!m.open) m.showModal();
+  }
+  document.addEventListener("keydown", (ev) => {
+    if (!receiptCtx || !$("#receiptModal").open) return;
+    const n = receiptCtx.e.receipts.length;
+    if (ev.key === "ArrowRight" && n > 1) openReceipt(receiptCtx.e, (receiptCtx.i + 1) % n);
+    if (ev.key === "ArrowLeft" && n > 1) openReceipt(receiptCtx.e, (receiptCtx.i - 1 + n) % n);
+  });
+
   /* ───────────── GitHub section ───────────── */
   function renderGitHub(D) {
     const body = $("#githubBody");
@@ -759,7 +970,7 @@
     const body = $("#videosBody");
     const yt = state.snap && state.snap.youtube;
     const vids = (yt && yt.videos) || [];
-    if (!showSection("#videos", vids.length > 0)) return;
+    if (!showSection("#videos", vids.length > 0, ghost("#videosBody", 3, "Videos appear here: set youtube in ledger.config.js (synced every 30 min)."))) return;
     $("#videosSub").textContent = `Latest uploads from ${yt.title || "my channel"}.`;
     const play = (box, v) => {
       if (box.querySelector("iframe")) return;
@@ -777,12 +988,20 @@
             " · ", el("a", { href: safeUrl(`https://www.youtube.com/watch?v=${encodeURIComponent(v.id)}`), target: "_blank", rel: "noopener", class: "link-arrow" }, "YouTube ↗"))));
     };
     body.replaceChildren(card(vids[0], true), el("div", { class: "video-grid" }, vids.slice(1, 7).map((v) => card(v, false))),
-      yt.url ? el("a", { class: "btn btn-ghost", href: safeUrl(yt.url), target: "_blank", rel: "noopener" }, "Open channel", icon("arrow")) : null);
+      yt.url ? el("a", { class: "btn btn-ghost", href: safeUrl(yt.url), target: "_blank", rel: "noopener" }, icon("brand:youtube"), "Open channel", icon("arrow")) : null);
   }
   const svgPlay = () => { const s = svgEl("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }); s.innerHTML = '<path d="M8 5.5v13l11-6.5z" fill="currentColor"/>'; return s; };
   const navLink = (href) => $(`#nav a[href="${href}"]`) || document.createElement("a");
   // Sections with nothing real to show are removed (with their nav link), never padded with placeholders.
-  const showSection = (id, show) => { const sec = $(id); if (sec) sec.hidden = !show; navLink(id).hidden = !show; return show; };
+  const showSection = (id, show, ghostFill) => {
+    const sec = $(id);
+    if (!show && PREVIEW && ghostFill) { if (sec) sec.hidden = false; navLink(id).hidden = false; ghostFill(); return false; }
+    if (sec) sec.hidden = !show; navLink(id).hidden = !show; return show;
+  };
+  // Empty layout for preview: outlines only, no invented names or numbers.
+  const ghost = (container, n, caption, cls = "") => () => $(container).replaceChildren(
+    el("div", { class: `ghost-wrap ${cls}` }, Array.from({ length: n }, () => el("div", { class: "card ghost" }, skel("30%", 11), skel("75%", 20), skel("95%"), skel("55%"), el("span", { class: "skel bar-skel" })))),
+    el("p", { class: "ghost-caption" }, caption));
 
   /* ───────────── platforms ───────────── */
   let platformFilter = "all";
@@ -833,20 +1052,9 @@
   }
 
   /* ───────────── contact ───────────── */
-  const PROVIDERS = { twitter: "X", linkedin: "LinkedIn", youtube: "YouTube", instagram: "Instagram", mastodon: "Mastodon", bluesky: "Bluesky", reddit: "Reddit", twitch: "Twitch", facebook: "Facebook", npm: "npm", hometown: "Website" };
-  function socialList(D) {
-    const p = D.gh.profile; const seen = new Set(); const out = [];
-    const push = (name, handle, url) => { const u = safeUrl(url); if (!u || seen.has(u.replace(/\/$/, ""))) return; seen.add(u.replace(/\/$/, "")); out.push({ name, handle, url: u }); };
-    if (p) push("GitHub", `@${p.login}`, p.url);
-    for (const s of D.gh.socials) {
-      let host = ""; try { host = new URL(s.url).hostname.replace(/^www\./, ""); } catch {}
-      const handle = (() => { try { const u = new URL(s.url); return u.pathname.replace(/^\/|\/$/g, "") || host; } catch { return s.url; } })();
-      push(PROVIDERS[s.provider] || host || s.provider, handle.startsWith("@") || s.provider === "linkedin" ? handle : `@${handle.split("/").pop()}`, s.url);
-    }
-    if (p && p.twitter) push("X", `@${p.twitter}`, `https://x.com/${p.twitter}`);
-    if (p && p.blog) push("Website", p.blog.replace(/^https?:\/\//, "").replace(/\/$/, ""), /^https?:/.test(p.blog) ? p.blog : `https://${p.blog}`);
-    return out;
-  }
+  const socialIcon = (p) => (LIB.brand[p === "twitter" ? "x" : p] ? `brand:${p === "twitter" ? "x" : p}` : p === "website" ? "globe" : "at");
+  const socialList = (D) => L.socialLinks({ profile: D.gh.profile, socials: D.gh.socials, overrides: C.socials })
+    .map((x) => ({ ...x, url: safeUrl(x.url) })).filter((x) => x.url);
   function renderContact(D) {
     const grid = $("#contactGrid");
     const cards = [];
@@ -857,7 +1065,7 @@
       el("div", { class: "row gap-8" },
         el("button", { class: "btn btn-primary btn-sm", onclick: () => copy(email, "Email copied") }, icon("copy"), "Copy"),
         el("a", { class: "btn btn-ghost btn-sm", href: `mailto:${email}` }, "Compose"))));
-    if (C.discordServerId) {
+    if (DISCORD_ID) {
       const d = state.discord, invite = safeUrl(C.discordInvite) || safeUrl(d && d.invite) || safeUrl(state.snap && state.snap.discord && state.snap.discord.invite);
       cards.push(el("article", { class: `card contact-discord${entering("c-discord")}` },
         el("div", { class: "tile-label" }, "Discord"),
@@ -870,7 +1078,7 @@
     if (socials.length) cards.push(el("article", { class: `card contact-socials${entering("c-socials")}` },
       el("div", { class: "tile-label" }, "Socials"),
       el("ul", { class: "social-list" }, socials.map((s) => el("li", {}, el("a", { href: s.url, target: "_blank", rel: "noopener me" },
-        el("span", { class: "sname" }, s.name), el("span", { class: "shandle" }, s.handle, icon("arrow"))))))));
+        el("span", { class: "sname" }, icon(socialIcon(s.provider)), s.name), el("span", { class: "shandle" }, s.handle, icon("arrow"))))))));
     grid.dataset.count = String(cards.length);
     if (!showSection("#contact", cards.length > 0 || !state.booted)) return;
     grid.replaceChildren(...cards);
@@ -878,6 +1086,9 @@
 
   /* ───────────── footer ───────────── */
   function renderFooter(D) {
+    const p = D.gh.profile;
+    const brand = (p && p.company ? p.company.replace(/^@/, "") : p && p.name) || "";
+    $("#footerBrand").textContent = brand ? `${brand} ${new Date().getFullYear()}` : "";
     const live = [D.gh.mode === "live" && "GitHub", ...D.srcs.filter((s) => s.mode === "live").map((s) => s.meta.label), state.discord && "Discord"].filter(Boolean);
     const synced = D.srcs.filter((s) => s.mode === "snapshot").map((s) => s.meta.label);
     $("#footerSources").textContent = [live.length ? `Live: ${live.join(", ")}` : null, synced.length ? `Synced: ${synced.join(", ")}` : null, state.snap ? `Sync data changed ${ago(state.snap.generatedAt)}` : null].filter(Boolean).join(" · ");
@@ -891,6 +1102,36 @@
     const fallback = () => { const ta = el("textarea", { style: "position:fixed;opacity:0" }); ta.value = text; document.body.append(ta); ta.select(); try { document.execCommand("copy"); done(); } catch { toast("Couldn't copy"); } ta.remove(); };
     if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   }
+  /* ───────────── font library (Google Fonts, loaded only when picked) ───────────── */
+  const FONTS = {
+    geist:     { label: "Geist", note: "Geist · Geist Mono", body: "Geist", display: "Geist", mono: "Geist Mono", q: "family=Geist:wght@300..700&family=Geist+Mono:wght@400..600" },
+    inter:     { label: "Inter", note: "Inter Tight · Inter · JetBrains Mono", body: "Inter", display: "Inter Tight", mono: "JetBrains Mono", q: "family=Inter:wght@300..700&family=Inter+Tight:wght@500..700&family=JetBrains+Mono:wght@400..600" },
+    editorial: { label: "Editorial", note: "Instrument Serif · Inter · JetBrains Mono", body: "Inter", display: "Instrument Serif", mono: "JetBrains Mono", displayWeight: 400, displayTrack: "-0.01em", q: "family=Instrument+Serif:ital@0;1&family=Inter:wght@300..700&family=JetBrains+Mono:wght@400..600" },
+    grotesk:   { label: "Space Grotesk", note: "Space Grotesk · Space Mono", body: "Space Grotesk", display: "Space Grotesk", mono: "Space Mono", q: "family=Space+Grotesk:wght@300..700&family=Space+Mono:wght@400;700" },
+    bricolage: { label: "Bricolage", note: "Bricolage Grotesque · Figtree · Martian Mono", body: "Figtree", display: "Bricolage Grotesque", mono: "Martian Mono", q: "family=Bricolage+Grotesque:wght@400..800&family=Figtree:wght@300..700&family=Martian+Mono:wght@400..600" },
+    plex:      { label: "IBM Plex", note: "IBM Plex Sans · IBM Plex Mono", body: "IBM Plex Sans", display: "IBM Plex Sans", mono: "IBM Plex Mono", q: "family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600" },
+    manrope:   { label: "Manrope", note: "Manrope · Fira Code", body: "Manrope", display: "Manrope", mono: "Fira Code", q: "family=Manrope:wght@300..800&family=Fira+Code:wght@400..600" },
+    syne:      { label: "Syne", note: "Syne · DM Sans · DM Mono", body: "DM Sans", display: "Syne", mono: "DM Mono", q: "family=Syne:wght@500..800&family=DM+Sans:wght@300..700&family=DM+Mono:wght@400;500" },
+    mono:      { label: "Terminal", note: "JetBrains Mono everywhere", body: "JetBrains Mono", display: "JetBrains Mono", mono: "JetBrains Mono", q: "family=JetBrains+Mono:wght@300..700" },
+  };
+  const DEFAULT_FONT = FONTS[C.font] ? C.font : "geist";
+  const stack = (f, fallback) => `"${f}", ${fallback}`;
+  function applyFont(key, persist) {
+    const f = FONTS[key] || FONTS[DEFAULT_FONT];
+    const id = `font-${key}`;
+    if (key !== "geist" && !document.getElementById(id)) document.head.append(el("link", { id, rel: "stylesheet", href: `https://fonts.googleapis.com/css2?${f.q}&display=swap` }));
+    const r = document.documentElement.style;
+    r.setProperty("--font", stack(f.body, "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"));
+    r.setProperty("--display", stack(f.display, "var(--font)"));
+    r.setProperty("--mono", stack(f.mono, "ui-monospace, 'SF Mono', Menlo, Consolas, monospace"));
+    r.setProperty("--display-weight", String(f.displayWeight || 600));
+    r.setProperty("--display-track", f.displayTrack || "-0.02em");
+    document.documentElement.dataset.font = key;
+    if (persist) { try { if (key === DEFAULT_FONT) localStorage.removeItem("ledger-font"); else localStorage.setItem("ledger-font", key); } catch {} }
+  }
+  let savedFont = null; try { savedFont = localStorage.getItem("ledger-font"); } catch {}
+  applyFont(FONTS[savedFont] ? savedFont : DEFAULT_FONT, false);
+
   const effectiveTheme = () => document.documentElement.dataset.theme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   function toggleTheme() {
     const next = effectiveTheme() === "dark" ? "light" : "dark";
@@ -905,14 +1146,18 @@
     const go = (id) => () => $(id).scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" });
     const email = C.email || (D.gh.profile && D.gh.profile.email);
     return [
-      ...[["#overview", "Overview"], ["#projects", "Projects"], ["#drives", "Drives & goals"], ["#supporters", "Supporters & ledger"], ["#videos", "Videos"], ["#github", "GitHub"], ["#donate", "Ways to support"], ["#contact", "Contact"]].filter(([id]) => !$(id).hidden).map(([id, label]) => ({ group: "Sections", label, sub: id, ic: "hash", run: go(id) })),
+      ...[["#overview", "Overview"], ["#projects", "Projects"], ["#drives", "Drives & goals"], ["#wins", "Milestones"], ["#supporters", "Supporters & ledger"], ["#spending", "Spending & receipts"], ["#videos", "Videos"], ["#github", "GitHub"], ["#donate", "Ways to support"], ["#contact", "Contact"]].filter(([id]) => !$(id).hidden).map(([id, label]) => ({ group: "Sections", label, sub: id, ic: "hash", run: go(id) })),
       ...D.projects.map((p) => ({ group: "Projects", label: p.title, sub: p.goal ? `${money(p.raised)} / ${money(p.goal)}` : `#${p.number}`, ic: "folder", run: () => openProject(p.number) })),
       ...D.srcs.map((s) => s.meta.address
         ? { group: "Donate", label: `Copy ${s.meta.label} address`, sub: SRC[s.id], ic: "copy", run: () => copy(SRC[s.id], `${s.meta.label} address copied`) }
         : { group: "Donate", label: s.meta.label, sub: s.meta.handle ? s.meta.handle(SRC[s.id]) : "", ic: s.meta.icon, run: () => window.open(safeUrl(s.meta.link(SRC[s.id])), "_blank", "noopener") }),
-      ...socialList(D).map((s) => ({ group: "Socials", label: s.name, sub: s.handle, ic: "at", run: () => window.open(s.url, "_blank", "noopener") })),
+      ...D.leaders.slice(0, 40).map((d) => ({ group: "Donors", label: d.name, sub: money(Math.round(d.total)), ic: "users", run: () => { $("#donorSearch").value = d.name; renderDonors(current); $("#donorsCard").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block: "center" }); } })),
+      ...D.expenses.slice(0, 40).map((e) => ({ group: "Spending", label: e.title, sub: money(e.amount, e.currency), ic: "receipt", run: () => (e.receipts || []).length ? openReceipt(e, 0) : (() => { $("#spendSearch").value = e.title; renderSpending(current); $("#spending").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }); })() })),
+      ...D.milestones.slice(0, 20).map((m) => ({ group: "Milestones", label: winTitle(m), sub: m.date ? fmtDate(m.date) : "now", ic: WIN_ICON[m.kind] || "spark", run: () => $("#wins").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }) })),
+      ...socialList(D).map((s) => ({ group: "Socials", label: s.name, sub: s.handle, ic: socialIcon(s.provider), run: () => window.open(s.url, "_blank", "noopener") })),
       { group: "Actions", label: "Refresh live data", sub: "now", ic: "refresh", run: () => refresh(true) },
       { group: "Actions", label: "Toggle light / dark", sub: "theme", ic: "sun", run: toggleTheme },
+      ...Object.entries(FONTS).map(([k, f]) => ({ group: "Fonts", label: `${document.documentElement.dataset.font === k ? "✓ " : ""}${f.label}${k === DEFAULT_FONT ? " (default)" : ""}`, sub: f.note, ic: "type", run: () => { applyFont(k, true); toast(`Font: ${f.label}`); } })),
       email ? { group: "Actions", label: "Copy email address", sub: email, ic: "copy", run: () => copy(email, "Email copied") } : null,
     ].filter(Boolean);
   }
@@ -1030,6 +1275,15 @@
   }
   segmented($("#projectFilter"), (f) => { projectFilter = f; $$(".project").forEach((c) => c.classList.toggle("hide", f !== "all" && c.dataset.status !== f)); });
   segmented($("#platformFilter"), (f) => { platformFilter = f; $$(".platform").forEach((c) => c.classList.toggle("hide", f !== "all" && c.dataset.kind !== f)); });
+  let winT, donorT, spendT;
+  $("#winSearch").addEventListener("input", () => { clearTimeout(winT); winT = setTimeout(() => renderWins(current), 120); });
+  $("#donorSearch").addEventListener("input", () => { clearTimeout(donorT); donorT = setTimeout(() => { donorShown = 24; renderDonors(current); }, 120); });
+  $("#donorSort").addEventListener("change", () => renderDonors(current));
+  $("#donorMore").addEventListener("click", () => { donorShown += 48; renderDonors(current); });
+  $("#spendSearch").addEventListener("input", () => { clearTimeout(spendT); spendT = setTimeout(() => { spendShown = 15; renderSpending(current); }, 120); });
+  $("#spendCategory").addEventListener("change", () => { spendShown = 15; renderSpending(current); });
+  $("#spendProject").addEventListener("change", () => { spendShown = 15; renderSpending(current); });
+  $("#spendMore").addEventListener("click", () => { spendShown += 15; renderSpending(current); });
   segmented($("#chartRange"), (r) => { chartRange = r === "all" ? "all" : Number(r); renderChart(current); });
   let searchT;
   $("#tableSearch").addEventListener("input", () => { clearTimeout(searchT); searchT = setTimeout(() => renderTable(current, true), 120); });
@@ -1046,7 +1300,7 @@
     const D = current;
     const p = D.gh.profile;
     if (p) { $("#brandName").textContent = p.name; document.title = `${p.name} · Ledger`; }
-    renderSetup(D); renderBento(D); renderProjects(D); renderDrives(D); renderChart(D); renderBoard(D); renderTable(D, false); renderVideos(); renderGitHub(D); renderPlatforms(D); renderContact(D); renderFooter(D); renderLivePill();
+    renderSetup(D); renderBento(D); renderProjects(D); renderDrives(D); renderWins(D); renderChart(D); renderBoard(D); renderTable(D, false); renderDonors(D); renderSpending(D); renderVideos(); renderGitHub(D); renderPlatforms(D); renderContact(D); renderFooter(D); renderLivePill();
     // Number the visible sections 01, 02, … so hidden ones leave no gaps.
     $$("main > section:not([hidden]) .eyebrow").forEach((e, i) => { e.textContent = String(i + 1).padStart(2, "0"); });
   }

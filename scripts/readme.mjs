@@ -109,7 +109,6 @@ function months(n) {
 /* ═════════════ sections ═════════════ */
 const parts = [];
 const configured = Object.keys(LABELS).filter((id) => (id === "githubSponsors" ? SRC[id] && C.github : SRC[id]));
-const liveCount = sources.length + (P ? 1 : 0);
 
 // ── Header card
 const name = P ? P.name : C.github || "Ledger";
@@ -156,6 +155,7 @@ if (D.parts.length) stats.push(["Total raised", money(Math.round(D.raised)), `fr
 if (D.recurringParts.length) stats.push(["Recurring", `${money(Math.round(D.recurring))}/mo`, D.recurringParts.map((p) => p.label).join(" · ")]);
 if (D.supporters > 0 || D.leaders.length) stats.push(["Supporters", int(D.supporters || D.leaders.length), D.supporterParts.length > 1 ? "across platforms" : "and counting"]);
 const openProjects = D.projects.filter((p) => p.status === "active" || p.status === "planned");
+if (D.expenses.length) stats.push(["Spent", money(Math.round(D.spent)), `${D.expenses.length} expense${D.expenses.length === 1 ? "" : "s"} with receipts`]);
 if (D.projects.length) stats.push(["Projects", int(openProjects.length), `${D.projects.filter((p) => p.status === "funded").length} funded so far`]);
 if (g.contributions) stats.push(["Contributions", int(g.contributions.total), "on GitHub in the last year"]);
 // While there's little funding data, round the strip out with real GitHub numbers.
@@ -231,6 +231,25 @@ if (drives.length || D.goals.length) {
   });
 }
 
+// ── Milestones
+const WIN = {
+  first: (m) => [`First donation`, `${m.name || "An anonymous supporter"} via ${m.source}`],
+  raised: (m) => [`${money(m.threshold)} raised`, "counted from itemised payments"],
+  donors: (m) => [`${int(m.threshold)} donors`, "people who've chipped in"],
+  project: (m) => [`Funded: ${m.title}`, m.goal ? `${money(m.goal)} goal met` : "marked funded"],
+  drive: (m) => [`Drive goal reached: ${m.title}`, `${money(m.goal)} goal met`],
+  goal: (m) => [`${m.source} goal reached`, m.title],
+};
+if (D.milestones.length) {
+  parts.push(heading("Milestones"));
+  const nexts = [];
+  const pbar = (pct) => { const n = Math.round(Math.max(0, Math.min(1, pct)) * 20); return "▰".repeat(n) + "▱".repeat(20 - n); };
+  if (D.next.raised) { const n = D.next.raised; nexts.push(`**Next:** ${money(n.threshold)} raised  \`${pbar((n.current - n.prev) / (n.threshold - n.prev))}\` ${money(Math.round(n.current))}`); }
+  if (D.next.donors) { const n = D.next.donors; nexts.push(`**Next:** ${int(n.threshold)} donors  \`${pbar((n.current - n.prev) / (n.threshold - n.prev))}\` ${int(n.current)}`); }
+  if (nexts.length) parts.push(`\n${nexts.join("<br>\n")}\n`);
+  parts.push(`\n|   | Milestone | Detail | Date |\n|---|---|---|---|\n${D.milestones.slice(0, 12).map((m) => { const [t, d] = (WIN[m.kind] || (() => [m.kind, ""]))(m); const fresh = !m.date || Date.now() - new Date(m.date).getTime() < 30 * 864e5; return `| ${fresh ? "🟢" : "◦"} | **${md(t)}** | ${md(d)} | ${m.date ? date(m.date) : "now"} |`; }).join("\n")}\n`);
+}
+
 // ── Ways to support
 const supportLinks = {
   githubSponsors: [`https://github.com/sponsors/${C.github}`, "githubsponsors"],
@@ -283,10 +302,26 @@ if (D.payments.length || D.leaders.length) {
   }
   if (D.leaders.length) {
     parts.push(`\n**Top supporters**\n\n| | Name | Total | Via |\n|---:|---|---:|---|\n${D.leaders.slice(0, 10).map((s, i) => `| ${i + 1} | ${md(s.name)} | ${money(Math.round(s.total))}${s.monthly ? ` <sub>(${money(Math.round(s.monthly))}/mo)</sub>` : ""} | ${md(s.sources.join(", "))} |`).join("\n")}\n`);
+    if (D.leaders.length > 10) {
+      const alpha = D.leaders.slice().sort((a, b) => a.name.localeCompare(b.name)).slice(0, 300);
+      parts.push(`\n<details>\n<summary><b>All donors (${int(D.leaders.length)})</b></summary>\n\n${alpha.map((s) => `${md(s.name)} <sub>${money(Math.round(s.total))}</sub>`).join(" · ")}\n\n</details>\n`);
+    }
   }
   if (D.payments.length) {
     parts.push(`\n<details>\n<summary><b>Latest payments</b></summary>\n\n| Date | From | Message | Source | Amount |\n|---|---|---|---|---:|\n${D.payments.slice(0, 15).map((p) => `| ${date(p.date)} | ${md(p.name || "Anonymous")} | ${md(p.message ? p.message.slice(0, 80) : "")} | ${md(p.sourceLabel)} | ${p.value != null ? `${p.currency !== BASE ? "≈ " : ""}${money(p.value)}` : money(p.amount, p.currency)} |`).join("\n")}\n\n</details>\n`);
   }
+}
+
+// ── Spending
+if (D.expenses.length) {
+  parts.push(heading("Where the money goes", "Every expense is a GitHub issue or an Open Collective expense, with the receipt attached."));
+  if (D.byCategory.length) {
+    const total = D.byCategory.reduce((t, c) => t + c.value, 0) || 1;
+    parts.push(`\n${D.byCategory.slice(0, 6).map((c) => `\`${c.category}\` ${money(Math.round(c.value))} <sub>(${Math.round((c.value / total) * 100)}%)</sub>`).join(" · ")}\n`);
+  }
+  const rcpt = (e) => (e.receipts || []).map((r, i) => `[${r.kind === "image" ? "🧾" : r.kind === "file" ? "📄" : "↗"}${e.receipts.length > 1 ? i + 1 : ""}](${r.url})`).join(" ") || "–";
+  parts.push(`\n| Date | Expense | Category | Receipt | Amount |\n|---|---|---|:-:|---:|\n${D.expenses.slice(0, 12).map((e) => `| ${date(e.date)} | [${md(e.title)}](${e.url})${e.vendor ? ` <sub>${md(e.vendor)}</sub>` : ""}${e.project ? ` <sub>· ${md(e.project.title)}</sub>` : ""} | ${md(e.category || "–")} | ${rcpt(e)} | ${e.currency !== BASE && e.value != null ? `≈ ${money(e.value)}` : money(e.amount, e.currency)} |`).join("\n")}\n`);
+  if (D.expenses.length > 12) parts.push(`\n<sub>${D.expenses.length - 12} more on the ${siteUrl ? `<a href="${attr(siteUrl)}#spending">live site</a>` : "live site"}.</sub>\n`);
 }
 
 // ── Videos
@@ -339,24 +374,21 @@ if (g.contributions || repos.length) {
 // ── Contact
 const contact = [];
 const email = C.email || (P && P.email);
-if (P) contact.push(`<a href="${attr(P.url)}"><img alt="GitHub" src="${sh("GitHub", `@${P.login}`, "github")}"></a>`);
+const LOGO = { github: "github", twitter: "x", instagram: "instagram", youtube: "youtube", tiktok: "tiktok", linkedin: "linkedin", threads: "threads", bluesky: "bluesky", twitch: "twitch", reddit: "reddit", facebook: "facebook", mastodon: "mastodon", npm: "npm" };
+const socialLinks = L.socialLinks({ profile: P, socials: g.socials, overrides: C.socials });
+const gh0 = socialLinks.find((x) => x.provider === "github");
+if (gh0) contact.push(`<a href="${attr(gh0.url)}"><img alt="GitHub" src="${sh("GitHub", gh0.handle, "github")}"></a>`);
 if (email) contact.push(`<a href="mailto:${attr(email)}"><img alt="Email" src="${sh("email", email, "maildotru")}"></a>`);
 if (C.discordServerId) contact.push(`<a href="${attr(C.discordInvite || (snap.discord && snap.discord.invite) || "")}"><img alt="Discord" src="https://img.shields.io/discord/${encodeURIComponent(C.discordServerId)}?style=for-the-badge&logo=discord&logoColor=white&label=discord&color=111111&labelColor=2b2b2b"></a>`);
-const PROV = { twitter: ["X", "x"], linkedin: ["LinkedIn", "linkedin"], youtube: ["YouTube", "youtube"], instagram: ["Instagram", "instagram"], mastodon: ["Mastodon", "mastodon"], bluesky: ["Bluesky", "bluesky"], reddit: ["Reddit", "reddit"], twitch: ["Twitch", "twitch"], facebook: ["Facebook", "facebook"], npm: ["npm", "npm"] };
-for (const s of g.socials || []) {
-  const [n, logo] = PROV[s.provider] || [(() => { try { return new URL(s.url).hostname.replace(/^www\./, ""); } catch { return s.provider; } })(), ""];
-  const handle = (() => { try { return new URL(s.url).pathname.replace(/^\/|\/$/g, "").split("/").pop() || n; } catch { return n; } })();
-  contact.push(`<a href="${attr(s.url)}"><img alt="${attr(n)}" src="${sh(n, handle, logo)}"></a>`);
-}
-if (P && P.twitter && !(g.socials || []).some((s) => s.provider === "twitter")) contact.push(`<a href="https://x.com/${attr(P.twitter)}"><img alt="X" src="${sh("X", `@${P.twitter}`, "x")}"></a>`);
-if (P && P.blog) contact.push(`<a href="${attr(/^https?:/.test(P.blog) ? P.blog : `https://${P.blog}`)}"><img alt="Website" src="${sh("web", P.blog.replace(/^https?:\/\//, "").replace(/\/$/, ""), "")}"></a>`);
+for (const x of socialLinks.filter((x) => x.provider !== "github")) contact.push(`<a href="${attr(x.url)}"><img alt="${attr(x.name)}" src="${sh(x.name, x.handle, LOGO[x.provider] || "")}"></a>`);
 if (contact.length) {
   parts.push(heading("Get in touch"));
   parts.push(`\n<p>\n${contact.join("\n")}\n</p>\n`);
 }
 
 // ── Footer
-parts.push(`\n---\n\n<div align="center">\n<sub>This page rebuilds itself from ${liveCount} live source${liveCount === 1 ? "" : "s"}${siteUrl ? ` · <a href="${attr(siteUrl)}">open the interactive version</a>` : ""} · <a href="docs/SETUP.md">how it works</a></sub>\n</div>\n`);
+const brand = (P && P.company ? P.company.replace(/^@/, "") : P && P.name) || "";
+if (brand) parts.push(`\n---\n\n<div align="center">\n<sub><b>${xml(brand)} ${new Date().getFullYear()}</b></sub>\n</div>\n`);
 
 /* ───────────── write ───────────── */
 const readme = parts.join("\n");

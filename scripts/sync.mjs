@@ -45,7 +45,7 @@ async function gql(token, query, variables) {
 /* ─────────── GitHub profile, projects, drives, status ─────────── */
 if (C.github || C.repo) {
   const headers = env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}`, "User-Agent": "ledger-sync" } : { "User-Agent": "ledger-sync" };
-  const g = await S.github({ login: C.github, repo: C.repo, label: C.projectLabel || "funding", headers });
+  const g = await S.github({ login: C.github, repo: C.repo, label: C.projectLabel || "funding", expenseLabel: C.expenseLabel || "expense", headers });
   if (C.github && env.GITHUB_TOKEN) {
     try {
       const d = await gql(env.GITHUB_TOKEN, `query($l:String!){ user(login:$l){ status{ message emoji indicatesLimitedAvailability } } }`, { l: C.github });

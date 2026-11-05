@@ -30,7 +30,9 @@
         <span class="nav-indicator" id="navIndicator" aria-hidden="true"></span>
         <a href="#projects" hidden>Work</a>
         <a href="#drives" hidden>Drives</a>
+        <a href="#wins" hidden>Wins</a>
         <a href="#supporters" hidden>Backers</a>
+        <a href="#spending" hidden>Spending</a>
         <a href="#videos" hidden>Videos</a>
         <a href="#github" hidden>GitHub</a>
         <a href="#donate" hidden>Support</a>
@@ -82,6 +84,22 @@
         </div>
       </div>
       <div class="drive-list" id="driveList"></div>
+    </section>
+
+    <section id="wins" class="section" hidden>
+      <div class="section-head reveal">
+        <div>
+          <span class="eyebrow mono">03</span>
+          <h2>Milestones</h2>
+          <p class="section-sub">Every goal hit along the way. Click one to celebrate.</p>
+        </div>
+        <label class="search search-sm">
+          <svg viewBox="0 0 24 24" class="i"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" id="winSearch" placeholder="Search milestones…" autocomplete="off" />
+        </label>
+      </div>
+      <div class="win-next-row" id="winNext"></div>
+      <ol class="win-list" id="winList"></ol>
     </section>
 
     <section id="supporters" class="section" hidden>
@@ -145,6 +163,59 @@
           <button class="btn btn-ghost btn-sm" id="tableMore" hidden>Show more</button>
         </div>
       </article>
+
+      <article class="card donors-card reveal" id="donorsCard" hidden>
+        <div class="card-head">
+          <div>
+            <div class="tile-label">Donor directory</div>
+            <div class="tile-strong" id="donorCount"></div>
+          </div>
+        </div>
+        <div class="table-tools flat">
+          <label class="search">
+            <svg viewBox="0 0 24 24" class="i"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input type="search" id="donorSearch" placeholder="Find a donor…" autocomplete="off" />
+          </label>
+          <div class="select-wrap">
+            <select id="donorSort" aria-label="Sort donors">
+              <option value="top">Top givers</option>
+              <option value="recent">Most recent</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </div>
+        </div>
+        <div class="donor-grid" id="donorGrid"></div>
+        <div class="table-foot"><span></span><button class="btn btn-ghost btn-sm" id="donorMore" hidden>Show all</button></div>
+      </article>
+    </section>
+
+    <section id="spending" class="section" hidden>
+      <div class="section-head reveal">
+        <div>
+          <span class="eyebrow mono">05</span>
+          <h2>Where the money goes</h2>
+          <p class="section-sub">Every expense with its receipt, live from GitHub issues and Open Collective.</p>
+        </div>
+      </div>
+      <article class="card spend-card reveal">
+        <div class="spend-stats" id="spendStats"></div>
+        <div class="spend-cats" id="spendCats"></div>
+      </article>
+      <article class="card table-card spend-table reveal">
+        <div class="table-tools">
+          <label class="search">
+            <svg viewBox="0 0 24 24" class="i"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input type="search" id="spendSearch" placeholder="Search expenses, vendors, receipts…" autocomplete="off" />
+          </label>
+          <div class="select-wrap"><select id="spendCategory" aria-label="Filter by category"></select></div>
+          <div class="select-wrap"><select id="spendProject" aria-label="Filter by project"></select></div>
+        </div>
+        <div class="spend-list" id="spendList"></div>
+        <div class="table-foot">
+          <span class="tile-sub mono" id="spendFoot"></span>
+          <button class="btn btn-ghost btn-sm" id="spendMore" hidden>Show more</button>
+        </div>
+      </article>
     </section>
 
     <section id="videos" class="section" hidden>
@@ -195,7 +266,7 @@
 
   <footer class="footer">
     <div class="footer-inner">
-      <span class="tile-sub" id="footerSources"></span>
+      <span class="footer-left"><b class="footer-brand" id="footerBrand"></b><span class="tile-sub" id="footerSources"></span></span>
       <span class="tile-sub">Press <kbd>/</kbd> to search · <a href="#overview">Back to top ↑</a></span>
     </div>
   </footer>
@@ -206,6 +277,15 @@
         <svg viewBox="0 0 24 24" class="i"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
       <div id="pmBody"></div>
+    </div>
+  </dialog>
+
+  <dialog class="modal receipt-modal" id="receiptModal" aria-label="Receipt">
+    <div class="modal-inner">
+      <button class="icon-btn modal-close" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24" class="i"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+      <div id="receiptBody"></div>
     </div>
   </dialog>
 
@@ -225,6 +305,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="ledger.config.js"></script>
+  <script src="js/icons.js"></script>
   <script src="js/sources.js"></script>
   <script src="js/app.js"></script>
 </body>

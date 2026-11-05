@@ -86,7 +86,7 @@ body {
 a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; padding: 0; }
-h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.02em; }
+h1, h2, h3 { margin: 0; font-family: var(--display, var(--font)); font-weight: var(--display-weight, 600); letter-spacing: var(--display-track, -0.02em); }
 p { margin: 0; }
 .mono { font-family: var(--mono); font-feature-settings: "tnum" 1, "zero" 1; }
 .muted { color: var(--muted); }
@@ -795,3 +795,121 @@ a.go:hover { color: var(--ink); }
 
 .tile-github.row-2 .gh-num { font-size: clamp(44px, 5vw, 64px); }
 .tile-github.row-2 .gh-stats { gap: 40px; margin: auto 0; }
+
+/* ───────────── Nav: scrolls when every section is on ───────────── */
+.nav { overflow-x: auto; scrollbar-width: none; max-width: min(640px, 52vw); flex-wrap: nowrap; }
+.nav::-webkit-scrollbar { display: none; }
+.nav a { white-space: nowrap; flex: none; }
+.search-sm { flex: 0 1 260px; }
+
+/* ───────────── Milestones ───────────── */
+.win-next-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; margin-bottom: 18px; }
+.win-next-row:empty { display: none; }
+.win-next .progress-nums { margin: 10px 0 8px; }
+.win-next .progress-nums strong { font-size: 24px; }
+.win-list { list-style: none; margin: 0; padding: 0 0 0 4px; position: relative; display: grid; gap: 12px; }
+.win-list::before { content: ""; position: absolute; left: 21px; top: 8px; bottom: 8px; width: 1px; background: linear-gradient(var(--line-strong), transparent); }
+.win { display: grid; grid-template-columns: 36px 1fr; gap: 14px; align-items: start; }
+.win-dot {
+  width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; position: relative; z-index: 1;
+  background: var(--surface); border: 1px solid var(--line-strong); color: var(--muted);
+}
+.win.is-new .win-dot { color: var(--good); border-color: color-mix(in srgb, var(--good) 55%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--good) 12%, transparent); }
+.win-card { padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
+.win-card h3 { font-size: 17px; }
+.win-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.win-date { font-size: 12px; color: var(--faint); }
+.win-empty { padding: 12px 0 12px 50px; }
+.spark { position: fixed; z-index: 300; pointer-events: none; will-change: transform, opacity; }
+
+/* ───────────── Donor directory ───────────── */
+.donors-card { margin-top: 14px; }
+.table-tools.flat { padding: 0 0 14px; border-bottom: 0; }
+.donor-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.donor {
+  display: grid; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2);
+  transition: border-color .2s, background-color .2s;
+}
+.donor:hover { border-color: var(--line-strong); background: var(--surface); }
+.donor-av { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; font-size: 13px; font-weight: 600; background: var(--fill-soft); color: var(--ink-2); }
+.donor-main { display: flex; flex-direction: column; min-width: 0; }
+.donor-main b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.donor-main .tile-sub { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.donor-amt { font-size: 14px; text-align: right; display: flex; flex-direction: column; }
+.donor-amt small { font-size: 11px; color: var(--good); }
+.anon-card { border-style: dashed; }
+.donor mark { background: var(--fill-soft); color: inherit; border-radius: 3px; }
+
+/* ───────────── Spending ───────────── */
+.spend-card { margin-bottom: 14px; display: grid; gap: 18px; }
+.spend-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.spend-stats:empty, .spend-cats:empty { display: none; }
+.spend-stat { min-width: 0; }
+.spend-num { font-size: clamp(22px, 2.6vw, 30px); letter-spacing: -0.03em; margin: 4px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spend-cats { display: grid; gap: 10px; }
+.cat-bar { height: 12px; }
+.spend-list { display: flex; flex-direction: column; }
+.expense {
+  display: grid; grid-template-columns: 104px minmax(0, 1fr) auto auto 110px; gap: 14px; align-items: center;
+  padding: 13px 16px; border-bottom: 1px solid var(--line); transition: background-color .15s;
+}
+.expense:hover { background: var(--surface-2); }
+.exp-date { font-size: 12.5px; color: var(--muted); }
+.exp-main { display: flex; flex-direction: column; min-width: 0; }
+.exp-main b { font-weight: 500; }
+.exp-main .tile-sub { font-size: 12.5px; }
+.exp-note { font-size: 12.5px; color: var(--muted); font-style: italic; margin-top: 2px; }
+.exp-amt { text-align: right; font-size: 14px; }
+.exp-receipts .copy-mini .i { width: 13px; height: 13px; }
+.expense mark { background: var(--fill-soft); color: inherit; border-radius: 3px; }
+
+.receipt-modal { width: min(760px, calc(100vw - 32px)); }
+.receipt-stage { position: relative; border-radius: 14px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); margin-top: 26px; display: grid; place-items: center; min-height: 200px; }
+.receipt-stage img { max-width: 100%; max-height: 64vh; display: block; }
+.rc-prev, .rc-next { position: absolute; top: 50%; transform: translateY(-50%); background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(6px); }
+.rc-prev { left: 10px; } .rc-next { right: 10px; }
+.receipt-meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin: 16px 0; }
+
+/* ───────────── Preview: empty layouts ───────────── */
+.preview-card { border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.preview-card .tile-label { color: var(--warn); }
+.ghost-wrap { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.ghost-wrap.one { grid-template-columns: 1fr; }
+.ghost { border-style: dashed; box-shadow: none; display: flex; flex-direction: column; gap: 12px; min-height: 180px; background: transparent; }
+.ghost .bar-skel { height: 8px; width: 100%; margin-top: auto; border-radius: 99px; }
+.ghost-caption { color: var(--muted); font-size: 13px; margin-top: 12px; }
+#spendList .ghost-wrap { padding: 16px; }
+
+/* ───────────── Footer brand ───────────── */
+.footer-left { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.footer-brand { font-weight: 600; letter-spacing: -0.01em; }
+
+@media (max-width: 1100px) {
+  .spend-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .expense { grid-template-columns: 90px minmax(0, 1fr) auto; }
+  .expense .tag { display: none; }
+  .exp-amt { grid-column: 3; }
+  .exp-receipts { grid-column: 2; grid-row: 2; }
+}
+@media (max-width: 600px) {
+  .expense { grid-template-columns: minmax(0, 1fr) auto; }
+  .exp-date { grid-column: 1 / -1; }
+  .exp-receipts { grid-column: 1; grid-row: auto; }
+  .exp-amt { grid-column: 2; grid-row: 2; }
+  .win-list::before { left: 17px; }
+  .win { grid-template-columns: 28px 1fr; gap: 10px; }
+  .win-dot { width: 28px; height: 28px; }
+  .win-dot .i { width: 13px; height: 13px; }
+}
+
+/* Brand logos (Simple Icons) are filled shapes, not strokes */
+.i.brand { fill: currentColor; stroke: none; }
+.social-list .sname { display: inline-flex; align-items: center; gap: 10px; }
+.social-list .sname .i { width: 15px; height: 15px; opacity: .75; }
+.profile-name { font-family: var(--display, var(--font)); font-weight: var(--display-weight, 600); }
+[data-font="editorial"] .profile-name, [data-font="editorial"] .section-head h2 { font-style: italic; letter-spacing: -0.01em; }
+/* Big numbers shrink to fit their tile instead of overflowing */
+.tile { container-type: inline-size; }
+.tile .big-number { font-size: min(44px, 15cqi); white-space: nowrap; }
+.tile .clock { font-size: min(34px, 14cqi); }

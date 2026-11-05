@@ -33,12 +33,12 @@
 
 <p>
 <a href="https://github.com/Ahmadhussain0033"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-%40Ahmadhussain0033-111111?style=for-the-badge&labelColor=2b2b2b&logo=github&logoColor=white"></a>
-<a href="https://www.instagram.com/theahemod/"><img alt="Instagram" src="https://img.shields.io/badge/Instagram-theahemod-111111?style=for-the-badge&labelColor=2b2b2b&logo=instagram&logoColor=white"></a>
+<a href="https://www.instagram.com/theahemod/"><img alt="Instagram" src="https://img.shields.io/badge/Instagram-%40theahemod-111111?style=for-the-badge&labelColor=2b2b2b&logo=instagram&logoColor=white"></a>
 </p>
 
 
 ---
 
 <div align="center">
-<sub>This page rebuilds itself from 1 live source · <a href="https://ahmadhussain0033.github.io/Ledger/">open the interactive version</a> · <a href="docs/SETUP.md">how it works</a></sub>
+<sub><b>Hexoro 2026</b></sub>
 </div>

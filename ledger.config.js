@@ -17,9 +17,11 @@ window.LEDGER_CONFIG = {
   github: "ahmadhussain0033",            // profile, avatar, bio, socials, followers
   repo: "ahmadhussain0033/Ledger",       // where project issues + drive milestones live
   projectLabel: "funding",
+  expenseLabel: "expense",               // issues with this label = expenses; attach the receipt to the issue
 
   currency: "USD",                       // everything is converted to this
   locale: "en-US",
+  font: "geist",                         // geist · inter · editorial · grotesk · bricolage · plex · manrope · syne · mono (visitors can switch with ⌘K)
   timezone: "",                          // IANA name, e.g. "America/New_York" → local-time widget
   email: "",                             // blank → public email on your GitHub profile, if any
 
@@ -28,6 +30,12 @@ window.LEDGER_CONFIG = {
 
   discordServerId: "",                   // enable Server Settings → Widget in Discord first
   discordInvite: "",                     // optional; otherwise the widget's own invite is used
+
+  // Social handles. These override the links on your GitHub profile for the same platform.
+  // Supported: instagram, x, youtube, tiktok, linkedin, threads, bluesky, twitch, reddit, facebook.
+  socials: {
+    instagram: "theahemod",
+  },
 
   sources: {
     // Live in the browser, no keys needed:

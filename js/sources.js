@@ -41,14 +41,16 @@
    *   tag: workstation
    * are read as metadata and hidden from the displayed text.
    */
-  const META_RE = /^[ \t]*(goal|tag|currency)[ \t]*:[ \t]*(.+?)[ \t]*$/gim;
+  const META_RE = /^[ \t]*(goal|tag|currency|amount|category|vendor|date)[ \t]*:[ \t]*(.+?)[ \t]*$/gim;
   function parseMeta(text) {
     const out = {};
     String(text || "").replace(META_RE, (_, k, v) => { out[k.toLowerCase()] = v.trim(); return ""; });
-    if (out.goal != null) {
-      const n = Number(String(out.goal).replace(/[^0-9.]/g, ""));
-      out.goal = Number.isFinite(n) && n > 0 ? n : null;
+    for (const k of ["goal", "amount"]) {
+      if (out[k] == null) continue;
+      const n = Number(String(out[k]).replace(/[^0-9.]/g, ""));
+      out[k] = Number.isFinite(n) && n > 0 ? n : null;
     }
+    if (out.currency) out.currency = out.currency.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 4) || null;
     if (out.tag) out.tag = out.tag.replace(/^#/, "").toLowerCase();
     return out;
   }
@@ -61,10 +63,27 @@
       .trim();
   }
 
-  /* ─────────── GitHub (profile, socials, projects, drives) ─────────── */
-  async function github({ login, repo, label = "funding", headers = {} }) {
+  // Receipts attached to an issue: images (markdown or <img>) and uploaded files/PDFs.
+  function receiptsOf(text) {
+    const out = [], seen = new Set();
+    const add = (url, name, kind) => {
+      if (!/^https:\/\//.test(url) || seen.has(url)) return;
+      seen.add(url); out.push({ url, name: name || "Receipt", kind });
+    };
+    const t = String(text || "");
+    for (const m of t.matchAll(/!\[([^\]]*)\]\((\S+?)(?:\s+"[^"]*")?\)/g)) add(m[2], m[1], "image");
+    for (const m of t.matchAll(/<img[^>]+src="([^"]+)"[^>]*?(?:alt="([^"]*)")?[^>]*>/gi)) add(m[1], m[2], "image");
+    for (const m of t.matchAll(/(?<!!)\[([^\]]+)\]\((https:\/\/github\.com\/user-attachments\/files\/[^)\s]+|[^)\s]+\.pdf)\)/gi)) add(m[2], m[1], "file");
+    for (const m of t.matchAll(/^\s*(https:\/\/github\.com\/user-attachments\/assets\/\S+)\s*$/gm)) add(m[1], "Receipt", "image");
+    return out;
+  }
+  const stripReceipts = (text) => String(text || "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/<img[^>]*>/gi, "")
+    .replace(/^\s*https:\/\/github\.com\/user-attachments\/assets\/\S+\s*$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+
+  /* ─────────── GitHub (profile, socials, projects, drives, expenses) ─────────── */
+  async function github({ login, repo, label = "funding", expenseLabel = "expense", headers = {} }) {
     const h = { Accept: "application/vnd.github+json", ...headers };
-    const out = { updatedAt: nowISO(), profile: null, socials: [], repos: [], projects: [], drives: [], errors: [] };
+    const out = { updatedAt: nowISO(), profile: null, socials: [], repos: [], projects: [], drives: [], expenses: [], errors: [] };
     const tasks = [];
 
     if (login) {
@@ -121,6 +140,20 @@
           };
         });
       }).catch((e) => out.errors.push(`drives: ${e.message}`)));
+
+      tasks.push(getJSON(`${GH}/repos/${repo}/issues?labels=${encodeURIComponent(expenseLabel)}&state=all&per_page=100`, { headers: h }).then((list) => {
+        out.expenses = list.filter((i) => !i.pull_request).map((i) => {
+          const meta = parseMeta(i.body);
+          const labels = i.labels.map((l) => (typeof l === "string" ? l : l.name)).filter((n) => n && n.toLowerCase() !== expenseLabel.toLowerCase());
+          const when = meta.date && !Number.isNaN(Date.parse(meta.date)) ? new Date(meta.date).toISOString() : i.created_at;
+          return {
+            id: `gh-${i.number}`, number: i.number, title: i.title, url: i.html_url, source: "github",
+            date: when, amount: meta.amount ?? null, currency: meta.currency || null,
+            tag: meta.tag || null, category: meta.category || labels[0] || null, vendor: meta.vendor || null,
+            note: stripReceipts(stripMeta(i.body)), receipts: receiptsOf(i.body),
+          };
+        });
+      }).catch((e) => out.errors.push(`expenses: ${e.message}`)));
     }
 
     await Promise.all(tasks);
@@ -131,7 +164,8 @@
   async function openCollective(slug) {
     const query = `query($slug:String!){ account(slug:$slug){ name slug currency
       stats{ balance{valueInCents currency} totalAmountReceived{valueInCents currency} contributorsCount }
-      transactions(limit:100, type:CREDIT, kind:[CONTRIBUTION]){ totalCount nodes{ id createdAt amount{valueInCents currency} description fromAccount{ name slug } } } } }`;
+      transactions(limit:100, type:CREDIT, kind:[CONTRIBUTION]){ totalCount nodes{ id createdAt amount{valueInCents currency} description fromAccount{ name slug } } } }
+      expenses(account:{slug:$slug}, limit:100, status:[PAID]){ totalCount nodes{ legacyId description amount currency createdAt type tags payee{ name } } } }`;
     const j = await getJSON("https://api.opencollective.com/graphql/v2", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, variables: { slug } }),
     });
@@ -140,6 +174,7 @@
     if (!a) throw new Error(`Open Collective account "${slug}" not found`);
     const cur = a.currency;
     const tx = a.transactions || { nodes: [], totalCount: 0 };
+    const ex = j.data.expenses || { nodes: [], totalCount: 0 };
     return {
       id: "opencollective", label: "Open Collective", url: `https://opencollective.com/${a.slug}`, updatedAt: nowISO(),
       currency: cur,
@@ -153,6 +188,16 @@
         url: t.fromAccount ? `https://opencollective.com/${t.fromAccount.slug}` : null,
       })),
       backers: [],
+      expenses: ex.nodes.map((e) => {
+        const url = `https://opencollective.com/${a.slug}/expenses/${e.legacyId}`;
+        const tags = (e.tags || []).map((t) => String(t).toLowerCase());
+        return {
+          id: `oc-ex-${e.legacyId}`, title: e.description, date: e.createdAt, amount: e.amount / 100, currency: e.currency,
+          vendor: e.payee ? e.payee.name : null, category: tags[0] || String(e.type || "").toLowerCase() || null, tags,
+          url, receipts: [{ url, name: "Expense on Open Collective", kind: "link" }], note: null,
+        };
+      }),
+      expensesPartial: ex.totalCount > ex.nodes.length,
       partial: tx.totalCount > tx.nodes.length,
       note: tx.totalCount > tx.nodes.length ? `Showing the latest ${tx.nodes.length} of ${tx.totalCount} contributions` : null,
     };
@@ -299,16 +344,17 @@
 
     // Leaderboard: per source, lifetime backer totals when the platform gives them, else summed payments.
     const board = new Map();
-    const add = (name, value, src, monthly) => {
+    const add = (name, value, src, monthly, date) => {
       if (!name || value == null) return;
       const k = name.trim().toLowerCase();
-      const b = board.get(k) || { name: name.trim(), total: 0, count: 0, monthly: 0, sources: [] };
+      const b = board.get(k) || { name: name.trim(), total: 0, count: 0, monthly: 0, sources: [], first: null, last: null };
       b.total += value; b.count += 1; b.monthly += monthly || 0; if (!b.sources.includes(src)) b.sources.push(src);
+      if (date) { if (!b.first || date < b.first) b.first = date; if (!b.last || date > b.last) b.last = date; }
       board.set(k, b);
     };
     for (const s of withData) {
-      if (s.data.backers && s.data.backers.length) for (const b of s.data.backers) add(b.name, toBase(b.lifetime, s.data.currency), s.label, toBase(b.monthly, s.data.currency));
-      else for (const p of payments) if (p.source === s.id) add(p.name, p.value, s.label, 0);
+      if (s.data.backers && s.data.backers.length) for (const b of s.data.backers) add(b.name, toBase(b.lifetime, s.data.currency), s.label, toBase(b.monthly, s.data.currency), b.since || null);
+      else for (const p of payments) if (p.source === s.id) add(p.name, p.value, s.label, 0, p.date);
     }
 
     const projects = (g.projects || []).map((p) => {
@@ -326,13 +372,105 @@
     });
     const goals = withData.filter((s) => s.data.goal).map((s) => ({ ...s.data.goal, source: s.label, sourceId: s.id, sourceCurrency: s.data.goal.currency || s.data.currency }));
 
+    /* expenses & receipts */
+    const expenses = [
+      ...(g.expenses || []).map((e) => ({ ...e, source: "github", sourceLabel: "GitHub" })),
+      ...withData.flatMap((s) => (s.data.expenses || []).map((e) => ({ ...e, source: s.id, sourceLabel: s.label }))),
+    ].filter((e) => e.amount != null).map((e) => {
+      const cur = e.currency || base;
+      const tags = [...new Set([...(e.tags || []), ...(e.tag ? [e.tag] : [])])];
+      const project = projects.find((p) => tags.includes(p.tag)) || null;
+      return { ...e, currency: cur, value: toBase(e.amount, cur), tags, project: project ? { number: project.number, title: project.title, tag: project.tag } : null };
+    }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const spent = expenses.reduce((t, e) => t + (e.value || 0), 0);
+    const byCategory = [...expenses.reduce((m, e) => { const k = e.category || "uncategorised"; m.set(k, (m.get(k) || 0) + (e.value || 0)); return m; }, new Map())]
+      .map(([category, value]) => ({ category, value })).sort((a, b) => b.value - a.value);
+    for (const p of projects) { p.spent = expenses.filter((e) => e.tags.includes(p.tag)).reduce((t, e) => t + (e.value || 0), 0); }
+    const expensesPartial = withData.some((s) => s.data.expensesPartial);
+
+    /* milestones, worked out from dated payments (oldest first) */
+    const milestones = [];
+    const asc = payments.filter((p) => p.value != null && p.date).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    if (asc.length) milestones.push({ id: "first-gift", kind: "first", date: asc[0].date, name: asc[0].name, source: asc[0].sourceLabel, value: asc[0].value });
+    const RAISED = [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000];
+    const COUNT = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
+    let run = 0, ri = 0, ci = 0; const who = new Set(); let anon = 0;
+    for (const p of asc) {
+      run += p.value;
+      while (ri < RAISED.length && run >= RAISED[ri]) { milestones.push({ id: `raised-${RAISED[ri]}`, kind: "raised", threshold: RAISED[ri], date: p.date }); ri++; }
+      if (p.name) who.add(p.name.trim().toLowerCase()); else anon++;
+      while (ci < COUNT.length && who.size + anon >= COUNT[ci]) { milestones.push({ id: `donors-${COUNT[ci]}`, kind: "donors", threshold: COUNT[ci], date: p.date }); ci++; }
+    }
+    const next = {
+      raised: ri < RAISED.length && asc.length ? { threshold: RAISED[ri], current: run, prev: ri ? RAISED[ri - 1] : 0 } : null,
+      donors: ci < COUNT.length && asc.length ? { threshold: COUNT[ci], current: who.size + anon, prev: ci ? COUNT[ci - 1] : 0 } : null,
+    };
+    for (const p of projects) {
+      if (!p.goal && p.status !== "funded") continue;
+      let c = 0, hit = null;
+      if (p.goal) for (const x of p.payments.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))) { c += x.value || 0; if (c >= p.goal) { hit = x.date; break; } }
+      if (hit || p.status === "funded") milestones.push({ id: `project-${p.number}`, kind: "project", title: p.title, url: p.url, goal: p.goal, date: hit || p.closedAt || p.updatedAt });
+    }
+    for (const d of drives) {
+      if (!d.goal) continue;
+      let c = 0;
+      for (const x of d.payments.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))) { c += x.value || 0; if (c >= d.goal) { milestones.push({ id: `drive-${d.number}`, kind: "drive", title: d.title, url: d.url, goal: d.goal, date: x.date }); break; } }
+    }
+    for (const gl of goals) if (gl.target && gl.current >= gl.target) milestones.push({ id: `goal-${gl.sourceId}`, kind: "goal", title: gl.title, source: gl.source, url: gl.url, date: null });
+    // Newest first; on the same moment, the one reached later (bigger threshold) first.
+    milestones.forEach((m, i) => { m.order = i; });
+    milestones.sort((a, b) => ((b.date ? new Date(b.date).getTime() : now) - (a.date ? new Date(a.date).getTime() : now)) || (b.order - a.order));
+
     return {
       base, toBase, payments, parts, raised: parts.reduce((t, p) => t + p.value, 0),
       recurringParts, recurring: recurringParts.reduce((t, p) => t + p.value, 0),
       supporterParts, supporters: supporterParts.reduce((t, p) => t + p.value, 0),
       leaders: [...board.values()].sort((a, b) => b.total - a.total), projects, drives, goals,
+      expenses, spent, byCategory, expensesPartial, milestones, next,
     };
   }
 
-  root.LedgerSources = { github, openCollective, liberapay, bitcoin, ethereum, discord, fiatRates, summarize, parseMeta, stripMeta, getJSON };
+  /* ─────────── social links ─────────── */
+  const SOCIAL = {
+    instagram: ["Instagram", (h) => `https://www.instagram.com/${h}/`],
+    twitter: ["X", (h) => `https://x.com/${h}`], x: ["X", (h) => `https://x.com/${h}`],
+    youtube: ["YouTube", (h) => `https://www.youtube.com/@${h}`],
+    tiktok: ["TikTok", (h) => `https://www.tiktok.com/@${h}`],
+    linkedin: ["LinkedIn", (h) => `https://www.linkedin.com/in/${h}`],
+    threads: ["Threads", (h) => `https://www.threads.net/@${h}`],
+    bluesky: ["Bluesky", (h) => `https://bsky.app/profile/${h}`],
+    twitch: ["Twitch", (h) => `https://www.twitch.tv/${h}`],
+    reddit: ["Reddit", (h) => `https://www.reddit.com/user/${h}`],
+    facebook: ["Facebook", (h) => `https://www.facebook.com/${h}`],
+    mastodon: ["Mastodon", null], npm: ["npm", (h) => `https://www.npmjs.com/~${h}`],
+  };
+  // [{ provider, name, handle, url }] — GitHub profile first, config overrides replace the same platform.
+  function socialLinks({ profile = null, socials = [], overrides = {} } = {}) {
+    const out = [], seen = new Set();
+    const push = (provider, name, handle, url) => {
+      if (!/^https?:\/\//.test(url || "")) return;
+      const key = url.replace(/\/$/, "").toLowerCase();
+      if (seen.has(key)) return; seen.add(key);
+      out.push({ provider, name, handle, url });
+    };
+    const over = Object.fromEntries(Object.entries(overrides || {}).filter(([, v]) => v).map(([k, v]) => [k.toLowerCase() === "x" ? "twitter" : k.toLowerCase(), String(v).trim().replace(/^@/, "")]));
+    if (profile && profile.url) push("github", "GitHub", `@${profile.login}`, profile.url);
+    for (const [prov, h] of Object.entries(over)) {
+      const def = SOCIAL[prov];
+      if (/^https?:\/\//.test(h)) push(prov, def ? def[0] : prov, h.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""), h);
+      else if (def && def[1]) push(prov, def[0], `@${h}`, def[1](h));
+    }
+    for (const s of socials || []) {
+      if (over[s.provider]) continue;
+      let host = "", handle = s.url;
+      try { const u = new URL(s.url); host = u.hostname.replace(/^www\./, ""); handle = u.pathname.replace(/^\/|\/$/g, "").split("/").pop() || host; } catch {}
+      const def = SOCIAL[s.provider];
+      push(s.provider, def ? def[0] : host || s.provider, s.provider === "linkedin" ? handle : `@${handle.replace(/^@/, "")}`, s.url);
+    }
+    if (profile && profile.twitter && !over.twitter) push("twitter", "X", `@${profile.twitter}`, `https://x.com/${profile.twitter}`);
+    if (profile && profile.blog) push("website", "Website", profile.blog.replace(/^https?:\/\//, "").replace(/\/$/, ""), /^https?:/.test(profile.blog) ? profile.blog : `https://${profile.blog}`);
+    return out;
+  }
+
+  root.LedgerSources = { github, openCollective, liberapay, bitcoin, ethereum, discord, fiatRates, summarize, socialLinks, parseMeta, stripMeta, receiptsOf, getJSON };
 })(typeof window !== "undefined" ? window : globalThis);
