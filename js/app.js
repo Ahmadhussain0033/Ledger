@@ -141,6 +141,7 @@
   async function loadSnapshot() {
     try { state.snap = await L.getJSON(`data/snapshot.json?t=${Date.now()}`, { cache: "no-store" }); state.snapErr = null; }
     catch (e) { state.snapErr = e.status === 404 ? "not generated yet" : location.protocol === "file:" ? "can't be read from file://" : e.message; }
+    try { state.manual = await L.getJSON(`data/manual.json?t=${Date.now()}`, { cache: "no-store" }); } catch { state.manual = null; }
     state.snapAt = Date.now();
   }
   async function loadLive() {
@@ -163,7 +164,6 @@
     const profile = pick("profile", "profile:"), projects = pick("projects", "projects:"), drives = pick("drives", "drives:"), socials = pick("socials", "socials:"), repos = pick("repos", "repos:"), expenses = pick("expenses", "expenses:");
     return {
       profile: profile.v, projects: projects.v || [], drives: drives.v || [], socials: socials.v || [], repos: repos.v || [],
-      contributions: snap.contributions || null, pinned: snap.pinned || [],
       expenses: expenses.v || [],
       status: snap.status || null,
       mode: profile.mode === "live" && projects.mode === "live" ? "live" : profile.v || projects.v ? "snapshot" : errs ? "error" : "pending",
@@ -188,7 +188,9 @@
   function derive() {
     const srcs = sources();
     const g = gh();
-    const S = L.summarize({ base: BASE, github: g, usdPer: state.usdPer, sources: srcs.map((s) => ({ id: s.id, label: s.meta.label, data: s.data })) });
+    const list = srcs.map((s) => ({ id: s.id, label: s.meta.label, data: s.data }));
+    if (state.manual) list.push({ id: "manual", label: "Direct", data: L.manual(state.manual) });
+    const S = L.summarize({ base: BASE, github: g, usdPer: state.usdPer, sources: list });
     return { ...S, srcs, gh: g };
   }
 
@@ -232,7 +234,6 @@
       [!!state.snap, "Sync snapshot", state.snap ? `Last changed ${ago(state.snap.generatedAt)}` : `data/snapshot.json ${state.snapErr || "missing"}: the "Sync ledger" Action creates it`],
       [D.expenses.length > 0, "Expenses & receipts", D.expenses.length ? `${D.expenses.length} expense(s)` : `Open an issue labelled "${C.expenseLabel || "expense"}" with an "amount: $…" line and attach the receipt`],
       [!!(state.snap && state.snap.youtube), "Videos", C.youtube ? (state.snap && state.snap.youtube ? `${state.snap.youtube.videos.length} videos from ${state.snap.youtube.title}` : (state.snap && state.snap.errors && state.snap.errors.youtube) || "Waiting for the next sync") : "Optional: set youtube (channel ID or @handle)"],
-      [!!D.gh.contributions, "Contribution heatmap", D.gh.contributions ? `${intFmt(D.gh.contributions.total)} contributions` : "Filled in by the sync Action"],
       [!!TZ, "Local-time widget", TZ || "Optional: set timezone"],
       [!!DISCORD_ID, "Discord widget", DISCORD_ID ? (state.discordErr ? `Error: ${state.discordErr}` : "Connected") : "Optional: set discordServerId"],
     ];
@@ -353,15 +354,13 @@
       el("div", { class: "clock mono", id: "clock" }, "--:--"), el("div", { class: "tile-sub", id: "clockSub" })));
     else tiles.push(tile("tile-clock", el("div", { class: "tile-label" }, "My local time"), el("div", { class: "clock mono dim" }, "—"), el("div", { class: "tile-sub" }, "Timezone not set yet")));
 
-    // GitHub
-    if (p) {
-      const repos = el("span", { class: "mono gh-num" }), fol = el("span", { class: "mono gh-num" });
-      tiles.push(tile("tile-github", go("#github", "GitHub: see repositories"), el("div", { class: "tile-label" }, "GitHub"),
-        el("div", { class: "gh-stats" }, el("div", {}, repos, el("span", { class: "tile-sub" }, "repos")), el("div", {}, fol, el("span", { class: "tile-sub" }, "followers"))),
-        el("a", { class: "tile-sub link-arrow", href: safeUrl(p.url), target: "_blank", rel: "noopener" }, "View profile →")));
-      animateNumber(repos, "repos", p.repos || 0, intFmt);
-      animateNumber(fol, "followers", p.followers || 0, intFmt);
-    }
+    // Balance (raised minus spent)
+    if (D.parts.length || D.expenses.length) {
+      const big = el("div", { class: "big-number mono" });
+      tiles.push(tile("tile-balance", go("#spending", "Balance: see spending"), el("div", { class: "tile-label" }, "Balance"), big,
+        el("div", { class: "tile-sub" }, `${money(Math.round(D.raised))} in · ${money(Math.round(D.spent))} out`)));
+      animateNumber(big, "balance", D.raised - D.spent, (v) => money(Math.round(v)));
+    } else tiles.push(tile("tile-balance", el("div", { class: "tile-label" }, "Balance"), el("div", { class: "big-number mono dim" }, "—"), el("div", { class: "tile-sub" }, "Nothing in or out yet")));
 
     // Discord
     if (!DISCORD_ID) tiles.push(tile("tile-discord", el("div", { class: "tile-label" }, "Community"),
@@ -511,7 +510,7 @@
       el("div", { class: "pm-actions" },
         p.status !== "funded" && CONFIGURED.length ? el("a", { class: "btn btn-primary", href: "#donate", onclick: () => $("#projectModal").close() }, "Support this", icon("arrow")) : null,
         el("a", { class: "btn btn-ghost", href: safeUrl(p.url), target: "_blank", rel: "noopener" }, "Discuss on GitHub", icon("arrow")),
-        p.payments.length ? el("button", { class: "btn btn-ghost", onclick: () => { $("#projectModal").close(); openPalette("donation", `#${p.tag}`); } }, "See donations") : null),
+        p.payments.length ? el("button", { class: "btn btn-ghost", onclick: () => { $("#projectModal").close(); focusLedger("donation", `#${p.tag}`); } }, "See donations") : null),
     ));
     $("#projectModal").showModal();
     if (pct != null && pct >= 100) setTimeout(() => { const r = $("#projectModal .modal-inner").getBoundingClientRect(); celebrate(r.left + r.width / 2, r.top + 90, 34); }, 250);
@@ -675,6 +674,7 @@
     f.append(s.slice(i)); return f;
   }
   // One quiet row: date · title (+ sub) · meta · value
+  const sampleTag = (x) => (x && x.sample ? el("span", { class: "sample-tag", title: "Sample entry, not a real transaction" }, "sample") : null);
   const row = ({ date, title, sub, meta, value, extra, onclick, cls = "" }) => el("li", { class: `row${onclick ? " clickable" : ""} ${cls}`, onclick, tabindex: onclick ? "0" : null,
     onkeydown: onclick ? (e) => { if (e.key === "Enter") onclick(e); } : null },
     el("span", { class: "r-date mono" }, date || ""),
@@ -691,7 +691,7 @@
       const pr = D.projects.find((x) => p.tags.includes(x.tag));
       return row({
         date: shortDate(p.date), title: p.name || "Anonymous", sub: p.message || null,
-        meta: [p.sourceLabel, pr && pr.title].filter(Boolean).join(" · "),
+        meta: [p.sourceLabel, pr && pr.title].filter(Boolean).join(" · "), extra: sampleTag(p),
         value: p.value != null ? `${p.currency !== BASE ? "≈ " : ""}${money(p.value)}` : money(p.amount, p.currency),
         onclick: safeUrl(p.url) ? () => window.open(safeUrl(p.url), "_blank", "noopener") : null,
       });
@@ -779,7 +779,7 @@
     $("#spendList").replaceChildren(...D.expenses.slice(0, 8).map((e) => row({
       date: shortDate(e.date), title: e.title, sub: [e.vendor, e.project && e.project.title].filter(Boolean).join(" · ") || null,
       meta: e.category || "",
-      extra: (e.receipts || []).length ? el("button", { class: "copy-mini", type: "button", "aria-label": `Receipt for ${e.title}`, onclick: (ev) => { ev.stopPropagation(); openReceipt(e, 0); } }, icon(e.receipts[0].kind === "image" ? "image" : e.receipts[0].kind === "file" ? "file" : "receipt")) : null,
+      extra: [sampleTag(e), receiptLink(e)],
       value: e.currency !== BASE && e.value != null ? `≈ ${money(e.value)}` : money(e.amount, e.currency),
       onclick: (e.receipts || []).length ? () => openReceipt(e, 0) : safeUrl(e.url) ? () => window.open(safeUrl(e.url), "_blank", "noopener") : null,
     })));
@@ -812,72 +812,73 @@
     if (ev.key === "ArrowLeft" && n > 1) openReceipt(receiptCtx.e, (receiptCtx.i - 1 + n) % n);
   });
 
-  /* ───────────── GitHub section ───────────── */
-  function renderGitHub(D) {
-    const body = $("#githubBody");
-    const g = D.gh, repos = g.repos || [], cal = g.contributions;
-    if (!showSection("#github", !!(repos.length || cal || g.pinned.length), blank("#githubBody", "brand:github", "No GitHub activity yet"))) return;
-    const parts = [];
-
-    if (cal && cal.weeks && cal.weeks.length) {
-      const cell = 11, gap = 3, weeks = cal.weeks.slice(-53);
-      const W = weeks.length * (cell + gap), H = 7 * (cell + gap) + 18;
-      const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "heatmap", role: "img", "aria-label": `${cal.total} contributions in the last year` });
-      const mFmt = new Intl.DateTimeFormat(LOCALE, { month: "short" });
-      let lastMonth = -1;
-      weeks.forEach((w, wi) => {
-        const firstDay = w.days[0];
-        if (firstDay) { const m = new Date(firstDay.date).getMonth(); if (m !== lastMonth && wi < weeks.length - 2) { const t = svgEl("text", { x: wi * (cell + gap), y: 10, class: "hm-month" }); t.textContent = mFmt.format(new Date(firstDay.date)); svg.append(t); lastMonth = m; } }
-        w.days.forEach((d) => {
-          const dow = new Date(d.date + "T00:00:00Z").getUTCDay();
-          const r = svgEl("rect", { x: wi * (cell + gap), y: 18 + dow * (cell + gap), width: cell, height: cell, rx: 2.5, class: `hm l${d.level}`, tabindex: "-1" });
-          r.addEventListener("pointerenter", () => { const b = r.getBoundingClientRect(); showTip(b.left + b.width / 2, b.top, `${d.count} contribution${d.count === 1 ? "" : "s"}`, fmtDate(d.date + "T12:00:00Z")); });
-          r.addEventListener("pointerleave", hideTip);
-          svg.append(r);
-        });
-      });
-      parts.push(el("article", { class: `card gh-heat${entering("gh-heat")}` },
-        el("div", { class: "card-head" },
-          el("div", {}, el("div", { class: "tile-label" }, "Contributions · last year"), el("div", { class: "chart-total mono" }, intFmt(cal.total))),
-          el("div", { class: "hm-legend tile-sub" }, "Less", [0, 1, 2, 3, 4].map((l) => el("i", { class: `l${l}` })), "More")),
-        el("div", { class: "heat-scroll" }, svg)));
-    }
-
-    const langs = {};
-    for (const r of repos) if (r.language && !r.archived) langs[r.language] = (langs[r.language] || 0) + 1;
-    const langList = Object.entries(langs).sort((a, b) => b[1] - a[1]);
-    const totalL = langList.reduce((t, [, n]) => t + n, 0);
-    const stars = repos.reduce((t, r) => t + (r.stars || 0), 0);
-    const stats = el("article", { class: `card gh-stats-card${entering("gh-stats")}` },
-      el("div", { class: "tile-label" }, "At a glance"),
-      el("dl", { class: "pstats big" },
-        el("div", {}, el("dt", {}, "Public repos"), el("dd", { class: "mono" }, intFmt(g.profile ? g.profile.repos : repos.length))),
-        el("div", {}, el("dt", {}, "Stars earned"), el("dd", { class: "mono" }, intFmt(stars))),
-        el("div", {}, el("dt", {}, "Followers"), el("dd", { class: "mono" }, intFmt(g.profile ? g.profile.followers : 0)))),
-      langList.length ? el("div", { class: "lang-bar", role: "img", "aria-label": "Languages by repository count" }, langList.slice(0, 6).map(([n, c], i) => el("i", { style: `flex:${c};--o:${1 - i * 0.14}`, title: `${n} · ${c} repo${c === 1 ? "" : "s"}` }))) : null,
-      langList.length ? el("ul", { class: "lang-list" }, langList.slice(0, 6).map(([n, c], i) => el("li", {}, el("span", { class: "lang-dot", style: `--o:${1 - i * 0.14}` }), n, el("span", { class: "muted mono" }, `${Math.round((c / totalL) * 100)}%`)))) : null);
-
-    const featured = g.pinned.length ? g.pinned : repos.filter((r) => !r.archived).slice().sort((a, b) => (b.stars - a.stars) || b.pushedAt.localeCompare(a.pushedAt)).slice(0, 6);
-    const repoCards = featured.map((r) => el("a", { class: `card repo clickable${entering("repo" + r.name)}`, href: safeUrl(r.url), target: "_blank", rel: "noopener" },
-      el("div", { class: "repo-top" }, el("span", { class: "glyph sm" }, icon("folder")), el("span", { class: "tile-sub mono" }, r.pushedAt ? ago(r.pushedAt) : "")),
-      el("h3", { class: "mono" }, r.name),
-      r.description ? el("p", {}, r.description) : el("p", { class: "muted" }, "No description"),
-      el("div", { class: "repo-meta tile-sub" },
-        r.language ? el("span", {}, el("span", { class: "lang-dot" }), r.language) : null,
-        el("span", {}, "★ ", intFmt(r.stars || 0)),
-        r.forks ? el("span", {}, "⑂ ", intFmt(r.forks)) : null)));
-
-    const recent = repos.slice().sort((a, b) => b.pushedAt.localeCompare(a.pushedAt)).slice(0, 5);
-    const activity = recent.length ? el("article", { class: `card gh-recent${entering("gh-recent")}` },
-      el("div", { class: "tile-label" }, "Recently pushed"),
-      el("ul", { class: "recent-list" }, recent.map((r) => el("li", {}, el("a", { href: safeUrl(r.url), target: "_blank", rel: "noopener" },
-        el("span", { class: "mono" }, r.name), el("span", { class: "tile-sub" }, ago(r.pushedAt))))))) : null;
-
-    body.replaceChildren(...parts,
-      el("div", { class: "gh-row" }, stats, activity),
-      repoCards.length ? el("div", { class: "tile-label gh-sub" }, g.pinned.length ? "Pinned" : "Top repositories") : null,
-      repoCards.length ? el("div", { class: "repo-grid" }, repoCards) : null);
+  /* ───────────── Search section: every record, with receipt links ───────────── */
+  const LTYPES = [["all", "All"], ["donation", "Donations"], ["expense", "Expenses"], ["receipt", "Receipts"], ["donor", "Donors"], ["milestone", "Milestones"], ["project", "Projects"]];
+  const ledger = { type: "all", shown: 20 };
+  function receiptLink(e) {
+    const r = (e.receipts || [])[0];
+    if (!r) return null;
+    return el("button", { class: "receipt-link", type: "button", onclick: (ev) => { ev.stopPropagation(); openReceipt(e, 0); } },
+      icon(r.kind === "image" ? "image" : r.kind === "file" ? "file" : "receipt"), e.receipts.length > 1 ? `Receipts (${e.receipts.length})` : "Receipt");
   }
+  function ledgerIndex(D) {
+    const out = [];
+    for (const p of D.payments) {
+      const pr = D.projects.find((x) => p.tags.includes(x.tag));
+      out.push({ type: "donation", date: p.date, title: p.name || "Anonymous", sub: [p.message, pr && `for ${pr.title}`].filter(Boolean).join(" · "), meta: p.sourceLabel,
+        sign: "in", value: p.value, valueText: p.value != null ? money(p.value) : money(p.amount, p.currency), item: p, text: [p.name || "anonymous", p.message, p.sourceLabel, pr && pr.title].join(" ") });
+    }
+    for (const e of D.expenses) out.push({ type: (e.receipts || []).length ? "expense receipt" : "expense", date: e.date, title: e.title, sub: [e.vendor, e.project && `for ${e.project.title}`, e.note].filter(Boolean).join(" · "), meta: e.category || e.sourceLabel,
+      sign: "out", value: e.value, valueText: money(e.amount, e.currency), item: e, receipt: e, text: [e.title, e.vendor, e.category, e.note, e.sourceLabel, e.project && e.project.title, (e.receipts || []).length ? "receipt" : ""].join(" ") });
+    for (const d of D.leaders) out.push({ type: "donor", date: d.last, title: d.name, sub: `${d.count} gift${d.count === 1 ? "" : "s"}${d.monthly ? ` · ${money(Math.round(d.monthly))}/mo` : ""}`, meta: d.sources.join(", "),
+      value: d.total, valueText: money(Math.round(d.total)), donor: d.name, text: [d.name, d.sources.join(" ")].join(" ") });
+    for (const m of D.milestones) out.push({ type: "milestone", date: m.date, title: winTitle(m), sub: winDetail(m), meta: "Milestone", value: null, text: [winTitle(m), winDetail(m)].join(" ") });
+    for (const p of D.projects) out.push({ type: "project", date: p.updatedAt, title: p.title, sub: p.goal ? `${money(p.raised)} of ${money(p.goal)}` : `#${p.tag}`, meta: STATUS[p.status] || p.status, value: p.raised, valueText: money(p.raised), project: p.number, text: [p.title, p.body, p.tag].join(" ") });
+    return out.map((x) => ({ ...x, text: String(x.text || "").toLowerCase() }));
+  }
+  function renderSearch(D) {
+    showSection("#search", true);
+    const all = ledgerIndex(D);
+    const q = $("#ledgerSearch").value.trim().toLowerCase();
+    const hit = all.filter((x) => !q || x.text.includes(q) || x.title.toLowerCase().includes(q));
+    const is = (x, t) => t === "all" || x.type.split(" ").includes(t);
+    const count = (t) => hit.filter((x) => is(x, t)).length;
+    $("#ledgerChips").replaceChildren(...LTYPES.filter(([t]) => t === "all" || count(t)).map(([t, label]) =>
+      el("button", { type: "button", role: "tab", class: `chip${ledger.type === t ? " on" : ""}`, "aria-selected": String(ledger.type === t), onclick: () => { ledger.type = t; ledger.shown = 20; renderSearch(current); } },
+        label, el("span", { class: "chip-n" }, count(t)))));
+    if (ledger.type !== "all" && !count(ledger.type) && !q) ledger.type = "all";
+    let rows = hit.filter((x) => is(x, ledger.type));
+    const sort = $("#ledgerSort").value, time = (x) => (x.date ? new Date(x.date).getTime() : 0);
+    if (sort === "big") rows.sort((a, b) => (b.value ?? -1) - (a.value ?? -1));
+    else if (sort === "old") rows.sort((a, b) => time(a) - time(b));
+    else rows.sort((a, b) => time(b) - time(a));
+    const box = $("#ledgerResults");
+    if (!all.length) { blank("#ledgerResults", "search", "Nothing to search yet")(); $("#ledgerCount").textContent = ""; $("#ledgerMore").hidden = true; return; }
+    box.replaceChildren(...(rows.length ? rows.slice(0, ledger.shown).map((x) => row({
+      date: x.date ? shortDate(x.date) : "now",
+      title: highlight(x.title, q), sub: x.sub ? highlight(x.sub, q) : null,
+      meta: x.meta || "",
+      extra: [sampleTag(x.item), x.receipt ? (receiptLink(x.receipt) || el("span", { class: "no-receipt" }, "no receipt")) : null],
+      value: x.valueText ? el("span", { class: x.sign === "in" ? "amt-in" : x.sign === "out" ? "amt-out" : "" }, `${x.sign === "in" ? "+" : x.sign === "out" ? "−" : ""}${x.valueText}`) : "",
+      onclick: x.receipt && (x.receipt.receipts || []).length ? () => openReceipt(x.receipt, 0)
+        : x.donor ? () => { $("#ledgerSearch").value = x.donor; ledger.type = "donation"; renderSearch(current); }
+        : x.project ? () => openProject(x.project)
+        : x.item && safeUrl(x.item.url) ? () => window.open(safeUrl(x.item.url), "_blank", "noopener") : null,
+    })) : [el("li", { class: "blank-li" }, el("div", { class: "blank" }, el("span", { class: "blank-ic" }, icon("search")), `Nothing matches “${$("#ledgerSearch").value.trim()}”`))]));
+    const inSum = rows.filter((x) => x.sign === "in").reduce((t, x) => t + (x.value || 0), 0), outSum = rows.filter((x) => x.sign === "out").reduce((t, x) => t + (x.value || 0), 0);
+    $("#ledgerCount").textContent = rows.length ? [`${intFmt(rows.length)} result${rows.length === 1 ? "" : "s"}`, inSum ? `+${money(Math.round(inSum))}` : null, outSum ? `−${money(Math.round(outSum))}` : null].filter(Boolean).join(" · ") : "";
+    $("#ledgerMore").hidden = rows.length <= ledger.shown;
+  }
+  function focusLedger(type = "all", q = "") {
+    ledger.type = type; ledger.shown = 20; $("#ledgerSearch").value = q;
+    renderSearch(current);
+    $("#search").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" });
+    setTimeout(() => $("#ledgerSearch").focus({ preventScroll: true }), REDUCED ? 0 : 450);
+  }
+  let ledgerT;
+  $("#ledgerSearch").addEventListener("input", () => { clearTimeout(ledgerT); ledgerT = setTimeout(() => { ledger.shown = 20; renderSearch(current); }, 100); });
+  $("#ledgerSort").addEventListener("change", () => renderSearch(current));
+  $("#ledgerMore").addEventListener("click", () => { ledger.shown += 20; renderSearch(current); });
 
   /* ───────────── Videos ───────────── */
   function renderVideos() {
@@ -1056,40 +1057,22 @@
   }
   $("#themeToggle").addEventListener("click", toggleTheme);
 
-  /* ───────────── universal search (⌘K): everything, one box, filters ───────────── */
-  const TYPES = [
-    ["all", "All"], ["donation", "Donations"], ["donor", "Donors"], ["expense", "Expenses"], ["project", "Projects"],
-    ["milestone", "Milestones"], ["video", "Videos"], ["repo", "Repos"], ["link", "Links"], ["page", "Sections"], ["action", "Actions"],
-  ];
+  /* ───────────── site search (⌘K or "/"): sections, projects, links, actions ───────────── */
+  const TYPES = [["page", "Sections"], ["project", "Projects"], ["link", "Links"], ["action", "Actions"]];
   const TYPE_LABEL = Object.fromEntries(TYPES);
   const scrollTo_ = (id) => () => { const x = $(id); if (x && !x.hidden) x.scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }); };
   function searchIndex() {
     const D = current || derive();
     const items = [];
-    const push = (o) => items.push({ ...o, text: [o.title, o.meta, o.extraText].filter(Boolean).join(" ").toLowerCase() });
+    const push = (o) => items.push({ ...o, text: [o.title, o.meta].filter(Boolean).join(" ").toLowerCase() });
     for (const [href, [label, ic]] of Object.entries(SECTIONS)) if ($(href) && !$(href).hidden) push({ type: "page", title: label, meta: "Section", ic, run: scrollTo_(href) });
-    for (const p of D.payments) {
-      const pr = D.projects.find((x) => p.tags.includes(x.tag));
-      push({ type: "donation", title: p.name || "Anonymous", meta: [p.sourceLabel, pr && pr.title, p.message].filter(Boolean).join(" · "), ic: (META[p.source] || {}).icon || "coins",
-        value: p.value ?? null, valueText: p.value != null ? money(p.value) : money(p.amount, p.currency), date: p.date,
-        run: safeUrl(p.url) ? () => window.open(safeUrl(p.url), "_blank", "noopener") : null });
-    }
-    for (const d of D.leaders) push({ type: "donor", title: d.name, meta: `${d.count} gift${d.count === 1 ? "" : "s"} · ${d.sources.join(", ")}${d.monthly ? ` · ${money(Math.round(d.monthly))}/mo` : ""}`, ic: "donors",
-      value: d.total, valueText: money(Math.round(d.total)), date: d.last, stay: true, run: () => setSearch("donation", d.name) });
-    for (const e of D.expenses) push({ type: "expense", title: e.title, meta: [e.vendor, e.category, e.project && e.project.title, e.sourceLabel].filter(Boolean).join(" · "), extraText: e.note, ic: "receipt",
-      value: e.value, valueText: money(e.amount, e.currency), date: e.date,
-      run: (e.receipts || []).length ? () => openReceipt(e, 0) : safeUrl(e.url) ? () => window.open(safeUrl(e.url), "_blank", "noopener") : null });
-    for (const p of D.projects) push({ type: "project", title: p.title, meta: [STATUS[p.status] || p.status, p.goal ? `${money(p.raised)} of ${money(p.goal)}` : null, `#${p.tag}`].filter(Boolean).join(" · "), extraText: p.body, ic: "folder",
-      value: p.raised, valueText: p.goal ? `${Math.round(Math.min(1, p.raised / p.goal) * 100)}%` : money(p.raised), date: p.updatedAt, run: () => openProject(p.number) });
-    for (const m of D.milestones) push({ type: "milestone", title: winTitle(m), meta: winDetail(m), ic: WIN_ICON[m.kind] || "spark", date: m.date, run: scrollTo_("#wins") });
-    for (const v of (state.snap && state.snap.youtube && state.snap.youtube.videos) || []) push({ type: "video", title: v.title, meta: v.views != null ? `${intFmt(v.views)} views` : "YouTube", ic: "video",
-      value: v.views, date: v.published, run: () => window.open(`https://www.youtube.com/watch?v=${encodeURIComponent(v.id)}`, "_blank", "noopener") });
-    for (const r of D.gh.repos || []) push({ type: "repo", title: r.name, meta: r.description || r.language || "", ic: "brand:github", value: r.stars, valueText: `★ ${intFmt(r.stars || 0)}`, date: r.pushedAt, run: () => window.open(safeUrl(r.url), "_blank", "noopener") });
+    for (const p of D.projects) push({ type: "project", title: p.title, meta: [STATUS[p.status] || p.status, p.goal ? `${money(p.raised)} of ${money(p.goal)}` : null].filter(Boolean).join(" · "), ic: "folder", run: () => openProject(p.number) });
     for (const s of D.srcs) push(s.meta.address
-      ? { type: "link", title: `${s.meta.label} address`, meta: "Copy to clipboard", extraText: SRC[s.id], ic: s.meta.icon, run: () => copy(SRC[s.id], `${s.meta.label} address copied`) }
+      ? { type: "link", title: `${s.meta.label} address`, meta: "Copy to clipboard", ic: s.meta.icon, run: () => copy(SRC[s.id], `${s.meta.label} address copied`) }
       : { type: "link", title: s.meta.label, meta: s.meta.handle ? s.meta.handle(SRC[s.id]) : "Donate", ic: s.meta.icon, run: () => window.open(safeUrl(s.meta.link(SRC[s.id])), "_blank", "noopener") });
     for (const s of socialList(D)) push({ type: "link", title: s.name, meta: s.handle, ic: socialIcon(s.provider), run: () => window.open(s.url, "_blank", "noopener") });
     const email = C.email || (D.gh.profile && D.gh.profile.email);
+    push({ type: "action", title: "Search donations & receipts", meta: "Jump to the Search section", ic: "receipt", run: () => focusLedger() });
     push({ type: "action", title: "Refresh live data", meta: "Fetch every source again", ic: "refresh", run: () => refresh(true) });
     push({ type: "action", title: "Toggle light / dark", meta: "Theme", ic: "sun", run: toggleTheme });
     if (email) push({ type: "action", title: "Copy email address", meta: email, ic: "copy", run: () => copy(email, "Email copied") });
@@ -1103,81 +1086,39 @@
     for (const ch of q) { const j = s.indexOf(ch, si); if (j === -1) return -1; streak = j === si ? streak + 1 : 0; score += 1 + streak * 2; si = j + 1; }
     return score;
   }
-  const pal = $("#palette"), palInput = $("#paletteInput"), palList = $("#paletteList"), palChips = $("#paletteChips"), palSort = $("#paletteSort");
-  let palAll = [], palView = [], palSel = 0, palType = "all";
-  function score(it, q) {
-    if (!q) return 0;
-    const t = fuzzy(q, it.title); if (t >= 0) return t + 200;
-    return it.text.includes(q) ? 100 : -1;
-  }
+  const pal = $("#palette"), palInput = $("#paletteInput"), palList = $("#paletteList");
+  let palAll = [], palView = [], palSel = 0;
   function renderPalette() {
     const q = palInput.value.trim().toLowerCase();
-    const matched = palAll.map((it) => ({ it, s: score(it, q) })).filter((x) => x.s >= 0);
-    const counts = matched.reduce((m, x) => { m[x.it.type] = (m[x.it.type] || 0) + 1; return m; }, {});
-    // filter chips (only types that have something)
-    palChips.replaceChildren(...TYPES.filter(([t]) => t === "all" || counts[t]).map(([t, label]) =>
-      el("button", { type: "button", role: "tab", class: `chip${palType === t ? " on" : ""}`, "aria-selected": String(palType === t), onclick: () => { palType = t; palSel = 0; renderPalette(); palInput.focus(); } },
-        label, el("span", { class: "chip-n" }, t === "all" ? matched.filter((x) => x.it.type !== "action" || q).length : counts[t]))));
-    if (palType !== "all" && !counts[palType]) palType = "all";
-    let view = matched.filter((x) => (palType === "all" ? (q || x.it.type !== "action") : x.it.type === palType));
-    const sort = palSort.value;
-    const t = (x) => (x.it.date ? new Date(x.it.date).getTime() : 0);
-    if (sort === "new") view.sort((a, b) => t(b) - t(a));
-    else if (sort === "big") view.sort((a, b) => (b.it.value ?? -1) - (a.it.value ?? -1));
-    else if (q) view.sort((a, b) => b.s - a.s);
-    else if (palType !== "all") view.sort((a, b) => (["donor", "repo"].includes(palType) ? (b.it.value ?? 0) - (a.it.value ?? 0) : t(b) - t(a)));
-    palView = view.slice(0, 200).map((x) => x.it);
+    const scored = palAll.map((it) => ({ it, s: q ? Math.max(fuzzy(q, it.title), it.text.includes(q) ? 100 : -1) : 0 })).filter((x) => x.s >= 0);
+    if (q) scored.sort((a, b) => b.s - a.s);
+    palView = scored.map((x) => x.it);
     palSel = Math.min(palSel, Math.max(0, palView.length - 1));
-    $("#paletteCount").textContent = view.length ? `${intFmt(view.length)} result${view.length === 1 ? "" : "s"}` : "";
     palList.replaceChildren();
-    if (!palView.length) { palList.append(el("li", { class: "palette-empty" }, q ? `Nothing found for “${palInput.value.trim()}”` : "Nothing here yet")); return; }
-    // With no query on "All", group by type and show a few of each.
-    if (!q && palType === "all") {
-      const order = TYPES.map(([t]) => t).filter((x) => x !== "all");
-      const groups = order.map((ty) => [ty, palView.filter((it) => it.type === ty)]).filter(([, l]) => l.length);
-      palView = groups.flatMap(([, l]) => l.slice(0, 4));
-      let i = 0;
-      for (const [ty, l] of groups) {
-        palList.append(el("li", { class: "palette-group", role: "presentation" }, TYPE_LABEL[ty], l.length > 4 ? el("button", { type: "button", class: "link-btn", onclick: () => { palType = ty; palSel = 0; renderPalette(); palInput.focus(); } }, `All ${l.length}`) : null));
-        for (const it of l.slice(0, 4)) palList.append(palRow(it, i++, q));
-      }
-      markSel(); return;
+    if (!palView.length) { palList.append(el("li", { class: "palette-empty" }, `Nothing found for “${palInput.value.trim()}”`)); return; }
+    if (q) { palView.forEach((it, i) => palList.append(palRow(it, i, q))); return; }
+    const ordered = []; let i = 0;
+    for (const [ty, label] of TYPES) {
+      const l = palView.filter((it) => it.type === ty); if (!l.length) continue;
+      palList.append(el("li", { class: "palette-group", role: "presentation" }, label));
+      for (const it of l) { ordered.push(it); palList.append(palRow(it, i++, q)); }
     }
-    palView.forEach((it, i) => palList.append(palRow(it, i, q)));
+    palView = ordered; markSel();
   }
   const palRow = (it, i, q) => el("li", { class: "palette-item", role: "option", "aria-selected": String(i === palSel), "data-i": i, onpointermove: () => { if (palSel !== i) { palSel = i; markSel(); } }, onclick: () => runPal(i) },
     el("span", { class: "pi-ic" }, icon(it.ic)),
-    el("span", { class: "pi-main" }, el("span", { class: "pi-title" }, highlight(it.title, q)), it.meta ? el("span", { class: "pi-meta" }, highlight(it.meta, q)) : null),
-    el("span", { class: "pi-side mono" }, it.valueText ? el("b", {}, it.valueText) : null, it.date ? el("span", {}, shortDate(it.date)) : null));
+    el("span", { class: "pi-main" }, el("span", { class: "pi-title" }, highlight(it.title, q)), it.meta ? el("span", { class: "pi-meta" }, highlight(it.meta, q)) : null));
   function markSel() { $$(".palette-item", palList).forEach((n) => n.setAttribute("aria-selected", String(Number(n.dataset.i) === palSel))); const cur = $(`.palette-item[data-i="${palSel}"]`, palList); if (cur) cur.scrollIntoView({ block: "nearest" }); }
-  function runPal(i) {
-    const it = palView[i]; if (!it || !it.run) return;
-    if (it.stay) { it.run(); return; }
-    pal.close(); setTimeout(it.run, 10);
-  }
-  function setSearch(type, q) { palType = type; palInput.value = q || ""; palSel = 0; renderPalette(); palInput.focus(); }
-  function openPalette(type = "all", q = "") {
-    palAll = searchIndex();
-    if (!pal.open) pal.showModal();
-    palSort.value = "best";
-    setSearch(type, q);
-  }
+  function runPal(i) { const it = palView[i]; if (!it || !it.run) return; pal.close(); setTimeout(it.run, 10); }
+  function openPalette() { palAll = searchIndex(); if (!pal.open) pal.showModal(); palInput.value = ""; palSel = 0; renderPalette(); palInput.focus(); }
   palInput.addEventListener("input", () => { palSel = 0; renderPalette(); });
-  palSort.addEventListener("change", () => { palSel = 0; renderPalette(); palInput.focus(); });
   palInput.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") { e.preventDefault(); palSel = (palSel + 1) % Math.max(1, palView.length); markSel(); }
     else if (e.key === "ArrowUp") { e.preventDefault(); palSel = (palSel - 1 + palView.length) % Math.max(1, palView.length); markSel(); }
     else if (e.key === "Enter") { e.preventDefault(); runPal(palSel); }
-    else if (e.key === "Tab") {
-      e.preventDefault();
-      const chips = $$(".chip", palChips).map((c) => c.textContent.replace(/\d+$/, ""));
-      const types = TYPES.filter(([, l]) => chips.includes(l)).map(([t]) => t);
-      const i = types.indexOf(palType);
-      palType = types[(i + (e.shiftKey ? -1 : 1) + types.length) % types.length] || "all"; palSel = 0; renderPalette();
-    }
   });
   $("#openPalette").addEventListener("click", () => openPalette());
-  document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("[data-search]"); if (b) { e.preventDefault(); openPalette(b.dataset.search); } });
+  document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("[data-search]"); if (b) { e.preventDefault(); focusLedger(b.dataset.search); } });
   if (!/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) $("#kbdHint").textContent = "Ctrl K";
   document.addEventListener("keydown", (e) => {
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
@@ -1191,7 +1132,7 @@
   const SECTIONS = {
     "#overview": ["Overview", "home"], "#projects": ["Work", "folder"], "#drives": ["Drives", "target"],
     "#wins": ["Milestones", "wins"], "#supporters": ["Backers", "donors"], "#spending": ["Spending", "spending"],
-    "#videos": ["Videos", "video"], "#github": ["GitHub", "brand:github"], "#donate": ["Support", "heart"], "#contact": ["Contact", "mail"],
+    "#search": ["Search", "search"], "#videos": ["Videos", "video"], "#donate": ["Support", "heart"], "#contact": ["Contact", "mail"],
   };
   let navApi = null;
   function setupNav() {
@@ -1365,7 +1306,7 @@
       const mark = $("#brandMark");
       if (safeUrl(p.avatar) && !mark.querySelector("img")) { mark.classList.add("has-img"); mark.replaceChildren(el("img", { src: safeUrl(p.avatar), alt: "", width: "28", height: "28" })); }
     }
-    renderSetup(D); renderBento(D); renderProjects(D); renderDrives(D); renderWins(D); renderChart(D); renderBoard(D); renderRecent(D); renderSpending(D); renderVideos(); renderGitHub(D); renderPlatforms(D); renderContact(D); renderFooter(D); renderLivePill();
+    renderSetup(D); renderBento(D); renderProjects(D); renderDrives(D); renderWins(D); renderChart(D); renderBoard(D); renderRecent(D); renderSpending(D); renderVideos(); renderSearch(D); renderPlatforms(D); renderContact(D); renderFooter(D); renderLivePill();
     // Number the visible sections 01, 02, … so hidden ones leave no gaps.
     $$("main > section:not([hidden]) .eyebrow").forEach((e, i) => { e.textContent = String(i + 1).padStart(2, "0"); });
     if (navApi) navApi.layout();

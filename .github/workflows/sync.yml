@@ -12,7 +12,7 @@ on:
     types: [created, edited, opened, closed, deleted]
   push:
     branches: [main]
-    paths: ["ledger.config.js", "js/sources.js", "scripts/**", ".github/workflows/sync.yml"]
+    paths: ["ledger.config.js", "data/manual.json", "js/sources.js", "scripts/**", ".github/workflows/sync.yml"]
     # (README.md and data/ are written by this workflow; its own pushes never retrigger it)
 
 permissions:

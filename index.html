@@ -37,8 +37,8 @@
           <a href="#wins">Wins</a>
           <a href="#supporters">Backers</a>
           <a href="#spending">Spending</a>
+          <a href="#search">Search</a>
           <a href="#videos">Videos</a>
-          <a href="#github">GitHub</a>
           <a href="#donate">Support</a>
           <a href="#contact">Contact</a>
           <div class="nav-more" id="navMore" hidden>
@@ -172,6 +172,34 @@
       </div>
     </section>
 
+    <section id="search" class="section">
+      <div class="section-head reveal">
+        <div>
+          <span class="eyebrow mono">06</span>
+          <h2>Search</h2>
+          <p class="section-sub">Every donation, expense and receipt in one place.</p>
+        </div>
+      </div>
+      <div class="card list-card search-card reveal">
+        <label class="search ledger-search">
+          <svg viewBox="0 0 24 24" class="i"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" id="ledgerSearch" placeholder="Search names, notes, vendors, receipts…" autocomplete="off" />
+        </label>
+        <div class="search-tools">
+          <div class="chips" id="ledgerChips" role="tablist" aria-label="Filter records"></div>
+          <div class="select-wrap select-sm">
+            <select id="ledgerSort" aria-label="Sort records">
+              <option value="new">Newest</option>
+              <option value="old">Oldest</option>
+              <option value="big">Largest</option>
+            </select>
+          </div>
+        </div>
+        <ol class="rows" id="ledgerResults"></ol>
+        <div class="table-foot"><span class="tile-sub mono" id="ledgerCount"></span><button class="btn btn-ghost btn-sm" id="ledgerMore" hidden>Show more</button></div>
+      </div>
+    </section>
+
     <section id="videos" class="section">
       <div class="section-head reveal">
         <div>
@@ -181,17 +209,6 @@
         </div>
       </div>
       <div id="videosBody" class="videos-body"></div>
-    </section>
-
-    <section id="github" class="section">
-      <div class="section-head reveal">
-        <div>
-          <span class="eyebrow mono">05</span>
-          <h2>On GitHub</h2>
-          <p class="section-sub">What I've been building lately, live from GitHub.</p>
-        </div>
-      </div>
-      <div id="githubBody" class="github-body"></div>
     </section>
 
     <section id="donate" class="section">
@@ -247,21 +264,11 @@
     <div class="palette-inner">
       <label class="palette-search">
         <svg viewBox="0 0 24 24" class="i"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="paletteInput" placeholder="Search donations, donors, expenses, projects…" autocomplete="off" spellcheck="false" />
+        <input id="paletteInput" placeholder="Search the site: sections, projects, links…" autocomplete="off" spellcheck="false" />
         <kbd>esc</kbd>
       </label>
-      <div class="palette-filters">
-        <div class="chips" id="paletteChips" role="tablist" aria-label="Filter results"></div>
-        <div class="select-wrap select-sm">
-          <select id="paletteSort" aria-label="Sort results">
-            <option value="best">Best match</option>
-            <option value="new">Newest</option>
-            <option value="big">Largest</option>
-          </select>
-        </div>
-      </div>
       <ul class="palette-list" id="paletteList" role="listbox"></ul>
-      <div class="palette-foot mono"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>tab</kbd> filter</span><span><kbd>↵</kbd> open</span><span class="pf-count" id="paletteCount"></span></div>
+      <div class="palette-foot mono"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>↵</kbd> open</span></div>
     </div>
   </dialog>
 

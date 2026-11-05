@@ -60,7 +60,18 @@ date: 2026-10-12        (optional: defaults to when the issue was opened)
 
 Drag the receipt photo or PDF into the issue. It shows up as a **Receipt** button on the site, with an image viewer. Open Collective expenses are pulled in automatically, each linked to its public expense page.
 
-## 5. Milestones
+## 5. Direct entries (cash, transfers)
+
+Money that doesn't come through a platform goes in [`data/manual.json`](../data/manual.json):
+
+```json
+{ "donations": [{ "date": "2026-11-02", "amount": 50, "name": "Sam", "message": "for #workstation" }],
+  "expenses":  [{ "date": "2026-11-03", "title": "SSD", "amount": 79, "vendor": "Amazon", "category": "hardware", "receipt": "https://…" }] }
+```
+
+Use `"anonymous": true` to hide a name. Put a receipt link (image, PDF or any page) in `"receipt"`. Rows with `"sample": true` are placeholders and show a *sample* tag; delete them once real entries come in. Saving the file rebuilds the README.
+
+## 6. Milestones
 
 Nothing to set up. Milestones are worked out from your payments:
 
@@ -72,7 +83,11 @@ Nothing to set up. Milestones are worked out from your payments:
 
 Clicking one plays a small celebration, and new ones celebrate once for each visitor.
 
-## 6. Donation platforms
+## Search
+
+The **Search** section on the page searches every donation, expense, receipt, donor, milestone and project, with filters and sorting. Press <kbd>/</kbd> or <kbd>⌘K</kbd> to search the site itself (sections, links, actions).
+
+## 7. Donation platforms
 
 Fill in the names under `sources` in `ledger.config.js`. Only what you fill in appears.
 
@@ -103,7 +118,7 @@ Ko-fi has no API; it can only *send* a webhook. [`relay/kofi-worker.js`](../rela
 
 Private Ko-fi supporters stay anonymous, and emails are never stored.
 
-## 7. Everything else
+## 8. Everything else
 
 | Setting | What it does |
 |---|---|

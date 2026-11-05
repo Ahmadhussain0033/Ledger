@@ -25,6 +25,8 @@ const g = snap.github || {};
 const P = g.profile || null;
 const LABELS = { opencollective: "Open Collective", liberapay: "Liberapay", githubSponsors: "GitHub Sponsors", patreon: "Patreon", buymeacoffee: "Buy Me a Coffee", kofi: "Ko-fi", paypal: "PayPal", bitcoin: "Bitcoin", ethereum: "Ethereum" };
 const sources = Object.entries(snap.sources || {}).map(([id, data]) => ({ id, label: LABELS[id] || id, data }));
+// Direct entries (cash, transfers, sample rows) from data/manual.json
+try { sources.push({ id: "manual", label: "Direct", data: L.manual(JSON.parse(await readFile(env.MANUAL_IN || new URL("data/manual.json", root), "utf8"))) }); } catch {}
 const D = L.summarize({ base: BASE, github: g, sources, usdPer: (snap.rates && snap.rates.usdPer) || { USD: 1 } });
 const siteUrl = C.siteUrl || (C.github && C.repo ? `https://${C.github.toLowerCase()}.github.io/${C.repo.split("/")[1]}/` : null);
 
@@ -109,30 +111,27 @@ function months(n) {
 /* ═════════════ sections ═════════════ */
 const parts = [];
 const configured = Object.keys(LABELS).filter((id) => (id === "githubSponsors" ? SRC[id] && C.github : SRC[id]));
+const balance = D.raised - D.spent;
+const anySample = D.payments.some((p) => p.sample) || D.expenses.some((e) => e.sample);
 
-// ── Header card
+// ── Header card: who, status, and a real mini-chart of money in per month
 const name = P ? P.name : C.github || "Ledger";
 const bio = P && P.bio ? P.bio : "";
 const bioLines = wrap(bio, 19, 640, 2);
-const headerH = 330;
 both("header", (t) => {
   const av = avatar
     ? `<clipPath id="av"><rect x="56" y="56" width="88" height="88" rx="22"/></clipPath><filter id="gs"><feColorMatrix type="saturate" values="0"/></filter><image href="${avatar}" x="56" y="56" width="88" height="88" clip-path="url(#av)" filter="url(#gs)"/>`
     : `<rect x="56" y="56" width="88" height="88" rx="22" fill="${t.fill}"/>${text(100, 112, initials(name), { size: 30, weight: 600, fill: t.fillInk, anchor: "middle" })}`;
-  const status = g.status && g.status.message ? g.status.message : configured.length ? "Open to support" : null;
-  const statusSvg = status ? (() => { const w = width(status, 13.5) + 44; return `<rect x="160" y="88" width="${w}" height="30" rx="15" fill="none" stroke="${t.line}"/><circle cx="178" cy="103" r="4" fill="${t.good}"/>${text(190, 108, fit(status, 13.5, 380), { size: 13.5, fill: t.ink2 })}`; })() : "";
-  // Right side: a real mini-chart (monthly payments, else last 26 weeks of contributions)
-  let deco = "";
+  const status = g.status && g.status.message ? g.status.message : "Open to support";
+  const sw = width(status, 13.5) + 44;
+  const statusSvg = `<rect x="160" y="88" width="${sw}" height="30" rx="15" fill="none" stroke="${t.line}"/><circle cx="178" cy="103" r="4" fill="${t.good}"/>${text(190, 108, fit(status, 13.5, 380), { size: 13.5, fill: t.ink2 })}`;
   const ms = months(12);
+  let deco = "";
   if (ms.some((m) => m.total > 0)) {
     const max = Math.max(...ms.map((m) => m.total));
-    deco = label(856, 92, "Payments · 12 months", t) + ms.map((m, i) => { const h = m.total ? Math.max(4, (m.total / max) * 150) : 3; return `<rect x="${856 + i * 30}" y="${262 - h}" width="20" height="${h}" rx="4" fill="${m.total ? t.fill : t.soft}"/>`; }).join("");
-  } else if (g.contributions && g.contributions.weeks) {
-    const wk = g.contributions.weeks.slice(-26).map((w) => w.days.reduce((s, d) => s + d.count, 0));
-    const max = Math.max(...wk, 1);
-    deco = label(856, 92, "Contributions · 26 weeks", t) + wk.map((v, i) => { const h = v ? Math.max(4, (v / max) * 150) : 3; return `<rect x="${856 + i * 13.6}" y="${262 - h}" width="9" height="${h}" rx="3" fill="${v ? t.good : t.soft}"/>`; }).join("");
+    deco = label(856, 92, "Money in · 12 months", t) + ms.map((m, i) => { const h = m.total ? Math.max(4, (m.total / max) * 150) : 3; return `<rect x="${856 + i * 30}" y="${262 - h}" width="20" height="${h}" rx="4" fill="${m.total ? t.fill : t.soft}"/>`; }).join("");
   }
-  return frame(1280, headerH, t,
+  return frame(1280, 330, t,
     av + statusSvg +
     text(56, 214, fit(name, 64, 760), { size: 64, weight: 600, fill: t.ink, ls: -2.5 }) +
     text(58, 250, [P ? `@${P.login}` : "", P && P.location, P && P.company].filter(Boolean).join("  ·  "), { size: 16, mono: true, fill: t.muted }) +
@@ -140,72 +139,84 @@ both("header", (t) => {
 });
 parts.push(`<div align="center">\n\n${pic("header", `${name}${bio ? ` · ${bio}` : ""}`)}\n`);
 
-// ── Badge row (shields.io renders these live)
-const shields = [];
+// ── Buttons: the live site and every way to give (shields render live)
 const sh = (labelTxt, msg, logo) => `https://img.shields.io/badge/${encodeURIComponent(labelTxt).replace(/-/g, "--")}-${encodeURIComponent(msg).replace(/-/g, "--")}-111111?style=for-the-badge&labelColor=2b2b2b${logo ? `&logo=${logo}&logoColor=white` : ""}`;
-if (siteUrl) shields.push(`<a href="${attr(siteUrl)}"><img alt="Live site" src="${sh("live", "site", "")}"></a>`);
-if (C.github) shields.push(`<a href="https://github.com/${attr(C.github)}"><img alt="GitHub followers" src="https://img.shields.io/github/followers/${encodeURIComponent(C.github)}?style=for-the-badge&logo=github&logoColor=white&label=followers&color=111111&labelColor=2b2b2b"></a>`);
-if (C.discordServerId) shields.push(`<a href="${attr(C.discordInvite || (snap.discord && snap.discord.invite) || "#contact")}"><img alt="Discord" src="https://img.shields.io/discord/${encodeURIComponent(C.discordServerId)}?style=for-the-badge&logo=discord&logoColor=white&label=online&color=111111&labelColor=2b2b2b"></a>`);
-if (snap.youtube) shields.push(`<a href="${attr(snap.youtube.url)}"><img alt="YouTube" src="${sh("youtube", snap.youtube.title || "channel", "youtube")}"></a>`);
-if (shields.length) parts.push(`${shields.join("\n")}\n`);
-
-// ── Stats strip
-const stats = [];
-if (D.parts.length) stats.push(["Total raised", money(Math.round(D.raised)), `from ${D.parts.length} source${D.parts.length === 1 ? "" : "s"}`]);
-if (D.recurringParts.length) stats.push(["Recurring", `${money(Math.round(D.recurring))}/mo`, D.recurringParts.map((p) => p.label).join(" · ")]);
-if (D.supporters > 0 || D.leaders.length) stats.push(["Supporters", int(D.supporters || D.leaders.length), D.supporterParts.length > 1 ? "across platforms" : "and counting"]);
-const openProjects = D.projects.filter((p) => p.status === "active" || p.status === "planned");
-if (D.expenses.length) stats.push(["Spent", money(Math.round(D.spent)), `${D.expenses.length} expense${D.expenses.length === 1 ? "" : "s"} with receipts`]);
-if (D.projects.length) stats.push(["Projects", int(openProjects.length), `${D.projects.filter((p) => p.status === "funded").length} funded so far`]);
-if (g.contributions) stats.push(["Contributions", int(g.contributions.total), "on GitHub in the last year"]);
-// While there's little funding data, round the strip out with real GitHub numbers.
-const repoList = g.repos || [];
-if (stats.length < 4 && P) stats.push(["Public repos", int(P.repos), `${int(repoList.reduce((t, r) => t + (r.stars || 0), 0))} stars earned`]);
-if (stats.length < 4 && P) stats.push(["Followers", int(P.followers), `following ${int(P.following)}`]);
-if (stats.length) {
-  both("stats", (t) => {
-    const cw = 1280 / stats.length;
-    return frame(1280, 150, t, stats.map(([l, v, s], i) => {
-      const x = i * cw + 36;
-      return (i ? `<line x1="${i * cw}" y1="28" x2="${i * cw}" y2="122" stroke="${t.line}"/>` : "") + label(x, 46, l, t) +
-        text(x, 94, fit(v, 40, cw - 60, true), { size: 40, mono: true, weight: 500, fill: t.ink, ls: -1.5 }) + text(x, 122, fit(s, 14, cw - 60), { size: 14, fill: t.muted });
-    }).join(""));
-  });
-  parts.push(`${pic("stats", stats.map((s) => `${s[0]}: ${s[1]}`).join(", "))}\n`);
-}
+const supportLinks = {
+  githubSponsors: [`https://github.com/sponsors/${C.github}`, "githubsponsors"], patreon: [`https://www.patreon.com/${SRC.patreon}`, "patreon"],
+  kofi: [`https://ko-fi.com/${SRC.kofi}`, "kofi"], buymeacoffee: [`https://www.buymeacoffee.com/${SRC.buymeacoffee}`, "buymeacoffee"],
+  opencollective: [`https://opencollective.com/${SRC.opencollective}/donate`, "opencollective"], liberapay: [`https://liberapay.com/${SRC.liberapay}/donate`, "liberapay"],
+  paypal: [`https://paypal.me/${SRC.paypal}`, "paypal"],
+};
+const buttons = [];
+if (siteUrl) buttons.push(`<a href="${attr(siteUrl)}"><img alt="Open the live ledger" src="${sh("open", "live ledger", "")}"></a>`);
+for (const id of configured) if (supportLinks[id]) buttons.push(`<a href="${attr(supportLinks[id][0])}"><img alt="${attr(LABELS[id])}" src="${sh("support on", LABELS[id], supportLinks[id][1])}"></a>`);
+if (C.discordServerId) buttons.push(`<a href="${attr(C.discordInvite || (snap.discord && snap.discord.invite) || "#")}"><img alt="Discord" src="https://img.shields.io/discord/${encodeURIComponent(C.discordServerId)}?style=for-the-badge&logo=discord&logoColor=white&label=online&color=111111&labelColor=2b2b2b"></a>`);
+if (buttons.length) parts.push(`${buttons.join("\n")}\n`);
 parts.push(`</div>\n`);
 
-const EMPTY = "\n<sub>Nothing here yet.</sub>\n";
-// helper for section headings in the site's style
+// ── Intro
+parts.push(`\n> **My open ledger.** What I'm building, what it costs, who's chipped in, and where every dollar goes. Every number here is pulled from the source and refreshed automatically.\n`);
+
+// ── Money card: balance, in, out, supporters, and how much of the money in has gone out
+if (D.parts.length || D.expenses.length) {
+  both("money", (t) => {
+    const cells = [["Money in", money(Math.round(D.raised)), t.good], ["Money out", money(Math.round(D.spent)), t.ink], ["Supporters", int(D.supporters || D.leaders.length), t.ink]];
+    const share = D.raised > 0 ? Math.min(1, D.spent / D.raised) : 0;
+    let out = label(40, 52, "Balance", t) + text(40, 112, money(Math.round(balance)), { size: 56, mono: true, weight: 500, fill: t.ink, ls: -2 });
+    cells.forEach(([l, v, col], i) => {
+      const x = 560 + i * 240;
+      out += `<line x1="${x - 32}" y1="34" x2="${x - 32}" y2="118" stroke="${t.line}"/>` + label(x, 52, l, t) + text(x, 100, fit(v, 32, 200, true), { size: 32, mono: true, weight: 500, fill: col, ls: -1 });
+    });
+    out += `<rect x="40" y="148" width="1200" height="6" rx="3" fill="${t.soft}"/>`;
+    if (D.raised > 0) out += `<rect x="40" y="148" width="${Math.max(6, 1200 * share)}" height="6" rx="3" fill="${t.fill}"/>`;
+    out += text(40, 182, D.raised > 0 ? `${Math.round(share * 100)}% of the money in has been spent` : "Nothing in yet", { size: 13.5, fill: t.muted });
+    return frame(1280, 206, t, out);
+  });
+  parts.push(`\n${pic("money", `Balance ${money(Math.round(balance))}: ${money(Math.round(D.raised))} in, ${money(Math.round(D.spent))} out`)}\n`);
+}
+
 let secN = 0;
 const heading = (title, sub) => { secN++; return `\n## \`${String(secN).padStart(2, "0")}\` · ${title}\n${sub ? `\n<sub>${sub}</sub>\n` : ""}`; };
 
-// ── Projects
+// ── The ledger: latest money in and out, with receipts
+const entries = [
+  ...D.payments.map((p) => ({ date: p.date, who: p.name || "Anonymous", note: [p.message, p.sourceLabel].filter(Boolean).join(" · "), sign: "+", value: p.value, amount: p.amount, currency: p.currency, sample: p.sample, receipts: null })),
+  ...D.expenses.map((e) => ({ date: e.date, who: e.title, note: [e.vendor, e.category].filter(Boolean).join(" · "), sign: "−", value: e.value, amount: e.amount, currency: e.currency, sample: e.sample, receipts: e.receipts || [] })),
+].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+if (entries.length) {
+  parts.push(heading("The ledger", `Latest money in and out.${siteUrl ? ` Search the full history and every receipt on the <a href="${attr(siteUrl)}#search">live ledger</a>.` : ""}`));
+  const amt = (x) => `${x.sign}${x.value != null ? money(x.value) : money(x.amount, x.currency)}`;
+  const rc = (x) => (x.receipts == null ? "" : x.receipts.length ? x.receipts.map((r, i) => `[receipt${x.receipts.length > 1 ? ` ${i + 1}` : ""}](${r.url})`).join(" ") : "<sub>none yet</sub>");
+  parts.push(`\n| Date | | Entry | Amount | Receipt |\n|---|:-:|---|--:|:-:|\n${entries.slice(0, 12).map((x) => `| ${date(x.date)} | ${x.sign === "+" ? "in" : "out"} | **${md(x.who)}**${x.note ? ` <sub>${md(x.note)}</sub>` : ""}${x.sample ? " <sub>· <i>sample</i></sub>" : ""} | ${amt(x)} | ${rc(x)} |`).join("\n")}\n`);
+  if (D.byCategory.length > 1) parts.push(`\n<sub>Spent by category: ${D.byCategory.slice(0, 5).map((c) => `<code>${xml(c.category)}</code> ${money(Math.round(c.value))}`).join(" · ")}</sub>\n`);
+  if (anySample) parts.push(`\n<sub><i>sample</i> rows are placeholders until real entries come in.</sub>\n`);
+}
+
+// ── What I'm working on
 const STATUS = { active: ["Active", "solid"], planned: ["Planned", "line"], paused: ["Paused", "warn"], funded: ["Funded", "good"], cancelled: ["Closed", "bad"] };
 const projOrder = ["active", "planned", "paused", "funded", "cancelled"];
 const projects = D.projects.filter((p) => p.status !== "cancelled").sort((a, b) => projOrder.indexOf(a.status) - projOrder.indexOf(b.status)).slice(0, 8);
 if (projects.length) {
-  parts.push(heading("What I'm working on", `Each card is a GitHub issue. Put <code>#tag</code> in your donation message to fund a specific one.`));
+  parts.push(heading("What I'm working on", `Put <code>#tag</code> in your donation message to fund a specific one.`));
   const cells = projects.map((p) => {
     const pct = p.goal ? p.raised / p.goal : null;
     both(`project-${p.number}`, (t) => {
       const [st, kind] = STATUS[p.status] || [p.status, "line"];
       const desc = wrap(firstPara(p.body, 200), 15, 560, 2);
       return frame(620, 210, t,
-        badge(28, 26, st, t, kind) + text(592, 42, `#${p.number}`, { size: 13, mono: true, fill: t.muted, anchor: "end" }) +
+        badge(28, 26, st, t, kind) + text(592, 42, `#${p.tag}`, { size: 13, mono: true, fill: t.muted, anchor: "end" }) +
         text(28, 84, fit(p.title, 24, 564), { size: 24, weight: 600, fill: t.ink, ls: -0.6 }) +
         desc.map((l, i) => text(28, 112 + i * 21, l, { size: 15, fill: t.muted })).join("") +
         text(28, 178, money(p.raised), { size: 18, mono: true, weight: 500, fill: t.ink }) +
-        (p.goal ? text(28 + width(money(p.raised), 18, true) + 6, 178, `/ ${money(p.goal)}`, { size: 14, mono: true, fill: t.muted }) : text(28 + width(money(p.raised), 18, true) + 6, 178, "raised", { size: 14, fill: t.muted })) +
-        text(592, 178, pct != null ? `${Math.round(pct * 100)}%` : `👍 ${p.upvotes}`, { size: 14, mono: true, fill: t.muted, anchor: "end" }) +
-        (pct != null ? bar(28, 188, 564, 7, pct, t) : ""));
+        text(28 + width(money(p.raised), 18, true) + 6, 178, p.goal ? `/ ${money(p.goal)}` : "raised", { size: 14, mono: !!p.goal, fill: t.muted }) +
+        (pct != null ? text(592, 178, `${Math.round(pct * 100)}%`, { size: 14, mono: true, fill: t.muted, anchor: "end" }) + bar(28, 188, 564, 7, pct, t) : ""));
     });
     return `<td width="50%" valign="top"><a href="${attr(p.url)}">${pic(`project-${p.number}`, `${p.title}: ${money(p.raised)}${p.goal ? ` of ${money(p.goal)}` : ""}`)}</a></td>`;
   });
   const rows = [];
   for (let i = 0; i < cells.length; i += 2) rows.push(`<tr>\n${cells[i]}\n${cells[i + 1] || "<td></td>"}\n</tr>`);
   parts.push(`\n<table>\n${rows.join("\n")}\n</table>\n`);
-} else parts.push(heading("What I'm working on"), EMPTY);
+}
 
 // ── Drives & goals
 const drives = D.drives.filter((d) => d.phase !== "ended");
@@ -221,7 +232,7 @@ if (drives.length || D.goals.length) {
       (pct != null ? bar(420, 112, 700, 10, pct, t) + text(1248, 122, `${Math.round(pct * 100)}%`, { size: 16, mono: true, fill: t.ink, anchor: "end" }) : "")));
     parts.push(`<a href="${attr(d.url)}">${pic(`drive-${d.number}`, `${d.title}: ${money(d.raised)}${d.goal ? ` of ${money(d.goal)}` : ""}`)}</a>\n`);
   }
-  D.goals.forEach((gl, i) => {
+  for (const gl of D.goals) {
     const pct = gl.target ? gl.current / gl.target : 0;
     const line = gl.unit === "count" ? `${int(gl.current)} of ${int(gl.target)} sponsors` : `${money(gl.current, gl.sourceCurrency)} of ${money(gl.target, gl.sourceCurrency)}${gl.period ? ` / ${gl.period}` : ""}`;
     both(`goal-${gl.sourceId}`, (t) => frame(1280, 120, t,
@@ -229,179 +240,68 @@ if (drives.length || D.goals.length) {
       text(640, 66, line, { size: 15, mono: true, fill: t.ink2 }) + bar(640, 80, 480, 10, pct, t) +
       text(1248, 90, `${Math.round(pct * 100)}%`, { size: 22, mono: true, fill: t.ink, anchor: "end" })));
     parts.push(`<a href="${attr(gl.url || "#")}">${pic(`goal-${gl.sourceId}`, `${gl.title}: ${line}`)}</a>\n`);
-  });
+  }
 }
 
-else parts.push(heading("Funding drives & goals"), EMPTY);
-
-// ── Milestones
-const WIN = {
-  first: (m) => [`First donation`, `${m.name || "An anonymous supporter"} via ${m.source}`],
-  raised: (m) => [`${money(m.threshold)} raised`, "counted from itemised payments"],
-  donors: (m) => [`${int(m.threshold)} donors`, "people who've chipped in"],
-  project: (m) => [`Funded: ${m.title}`, m.goal ? `${money(m.goal)} goal met` : "marked funded"],
-  drive: (m) => [`Drive goal reached: ${m.title}`, `${money(m.goal)} goal met`],
-  goal: (m) => [`${m.source} goal reached`, m.title],
-};
+// ── Milestones: a strip of the latest wins and progress to the next one
 if (D.milestones.length) {
+  const WIN = {
+    first: (m) => `First donation`, raised: (m) => `${money(m.threshold)} raised`, donors: (m) => `${int(m.threshold)} donors`,
+    project: (m) => `Funded: ${m.title}`, drive: (m) => `Drive done: ${m.title}`, goal: (m) => `${m.source} goal reached`,
+  };
   parts.push(heading("Milestones"));
-  const nexts = [];
-  const pbar = (pct) => { const n = Math.round(Math.max(0, Math.min(1, pct)) * 20); return "▰".repeat(n) + "▱".repeat(20 - n); };
-  if (D.next.raised) { const n = D.next.raised; nexts.push(`**Next:** ${money(n.threshold)} raised  \`${pbar((n.current - n.prev) / (n.threshold - n.prev))}\` ${money(Math.round(n.current))}`); }
-  if (D.next.donors) { const n = D.next.donors; nexts.push(`**Next:** ${int(n.threshold)} donors  \`${pbar((n.current - n.prev) / (n.threshold - n.prev))}\` ${int(n.current)}`); }
-  if (nexts.length) parts.push(`\n${nexts.join("<br>\n")}\n`);
-  parts.push(`\n| Date | Milestone |\n|---|---|\n${D.milestones.slice(0, 8).map((m) => { const [t, d] = (WIN[m.kind] || (() => [m.kind, ""]))(m); return `| ${m.date ? date(m.date) : "now"} | **${md(t)}** <sub>${md(d)}</sub> |`; }).join("\n")}\n`);
+  const ms = D.milestones.slice(0, 4).reverse();
+  const n = D.next.raised;
+  both("milestones", (t) => {
+    const W = 1280, x0 = 60, x1 = n ? 1000 : 1220, y = 92;
+    let out = `<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="${t.line}" stroke-width="2"/>`;
+    ms.forEach((m, i) => {
+      const x = ms.length === 1 ? x0 : x0 + (i * (x1 - x0)) / Math.max(1, ms.length - 1 + (n ? 1 : 0));
+      out += `<circle cx="${x}" cy="${y}" r="7" fill="${t.good}"/>` + text(x, y - 26, (WIN[m.kind] || (() => m.kind))(m), { size: 16, weight: 600, fill: t.ink, anchor: i === 0 ? "start" : "middle" }) +
+        text(x, y + 36, m.date ? date(m.date) : "now", { size: 12.5, mono: true, fill: t.muted, anchor: i === 0 ? "start" : "middle" });
+    });
+    if (n) {
+      const pct = Math.max(0, Math.min(1, (n.current - n.prev) / (n.threshold - n.prev)));
+      out += `<line x1="${x1}" y1="${y}" x2="${1220}" y2="${y}" stroke="${t.line}" stroke-width="2" stroke-dasharray="4 6"/>` +
+        `<circle cx="1220" cy="${y}" r="7" fill="none" stroke="${t.faint}" stroke-width="2"/>` +
+        text(1220, y - 26, `Next: ${money(n.threshold)}`, { size: 16, weight: 600, fill: t.ink2, anchor: "end" }) +
+        text(1220, y + 36, `${Math.round(pct * 100)}% there`, { size: 12.5, mono: true, fill: t.muted, anchor: "end" });
+    }
+    return frame(W, 160, t, out);
+  });
+  parts.push(`\n${pic("milestones", D.milestones.slice(0, 4).map((m) => (WIN[m.kind] || (() => m.kind))(m)).join(", "))}\n`);
 }
-
-else parts.push(heading("Milestones"), EMPTY);
-
-// ── Ways to support
-const supportLinks = {
-  githubSponsors: [`https://github.com/sponsors/${C.github}`, "githubsponsors"],
-  patreon: [`https://www.patreon.com/${SRC.patreon}`, "patreon"],
-  kofi: [`https://ko-fi.com/${SRC.kofi}`, "kofi"],
-  buymeacoffee: [`https://www.buymeacoffee.com/${SRC.buymeacoffee}`, "buymeacoffee"],
-  opencollective: [`https://opencollective.com/${SRC.opencollective}/donate`, "opencollective"],
-  liberapay: [`https://liberapay.com/${SRC.liberapay}/donate`, "liberapay"],
-  paypal: [`https://paypal.me/${SRC.paypal}`, "paypal"],
-};
-const btns = configured.filter((id) => supportLinks[id]).map((id) => {
-  const [url, logo] = supportLinks[id];
-  const s = sources.find((x) => x.id === id);
-  const extra = s && s.data && Number.isFinite(s.data.supporters) && s.data.supporters > 0 ? `${s.data.supporters} supporters` : "support";
-  return `<a href="${attr(url)}"><img alt="${attr(LABELS[id])}" src="https://img.shields.io/badge/${encodeURIComponent(LABELS[id]).replace(/-/g, "--")}-${encodeURIComponent(extra)}-111111?style=for-the-badge&logo=${logo}&logoColor=white&labelColor=2b2b2b"></a>`;
-});
-const wallets = ["bitcoin", "ethereum"].filter((id) => SRC[id]).map((id) => {
-  const s = sources.find((x) => x.id === id);
-  const recv = s && s.data ? ` · received ${money(s.data.received, s.data.currency)}` : "";
-  return `**${LABELS[id]}**${recv}\n\`\`\`\n${SRC[id]}\n\`\`\``;
-});
-if (btns.length || wallets.length) {
-  parts.push(heading("Ways to support", "Every platform below feeds the numbers on this page automatically."));
-  if (btns.length) parts.push(`\n<p>\n${btns.join("\n")}\n</p>\n`);
-  if (wallets.length) parts.push(`\n${wallets.join("\n\n")}\n`);
-}
-
-else parts.push(heading("Ways to support"), EMPTY);
 
 // ── Supporters
-if (D.payments.length || D.leaders.length) {
-  parts.push(heading("People who've helped", "Thank you. Anonymous gifts count toward the totals but are never named."));
-  const ms = months(12);
-  if (ms.some((m) => m.total > 0)) {
-    both("chart", (t) => {
-      const W = 1280, H = 300, pl = 72, pr = 32, pt = 70, pb = 44, iw = W - pl - pr, ih = H - pt - pb;
-      const raw = Math.max(...ms.map((m) => m.total)); const pw = Math.pow(10, Math.floor(Math.log10(raw))); const f = raw / pw;
-      const max = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * pw;
-      const slot = iw / ms.length, bw = Math.min(44, slot * 0.62);
-      const mFmt = new Intl.DateTimeFormat(LOCALE, { month: "short" });
-      const compact = (v) => new Intl.NumberFormat(LOCALE, { style: "currency", currency: BASE, notation: "compact", maximumFractionDigits: 1 }).format(v);
-      let out = label(32, 40, "Payments per month", t) + text(1248, 42, money(Math.round(ms.reduce((s, m) => s + m.total, 0))), { size: 22, mono: true, fill: t.ink, anchor: "end" });
-      for (let i = 0; i <= 4; i++) { const y = pt + ih - (ih * i) / 4; out += `<line x1="${pl}" x2="${W - pr}" y1="${y}" y2="${y}" stroke="${t.line}"/>` + text(pl - 10, y + 4, compact((max * i) / 4), { size: 11, mono: true, fill: t.muted, anchor: "end" }); }
-      ms.forEach((m, i) => {
-        const h = m.total ? Math.max(3, (m.total / max) * ih) : 2, x = pl + slot * i + (slot - bw) / 2, y = pt + ih - h, r = Math.min(4, bw / 2, h);
-        out += `<path d="M${x},${pt + ih}V${y + r}Q${x},${y} ${x + r},${y}H${x + bw - r}Q${x + bw},${y} ${x + bw},${y + r}V${pt + ih}Z" fill="${m.total ? t.fill : t.soft}"/>`;
-        out += text(x + bw / 2, H - 16, mFmt.format(m.d), { size: 11, mono: true, fill: t.muted, anchor: "middle" });
-      });
-      return frame(W, H, t, out);
-    });
-    parts.push(`\n${pic("chart", "Payments per month over the last 12 months")}\n`);
-  }
-  if (D.leaders.length) {
-    parts.push(`\n**Top supporters**\n\n| | Name | Total | Via |\n|---:|---|---:|---|\n${D.leaders.slice(0, 10).map((s, i) => `| ${i + 1} | ${md(s.name)} | ${money(Math.round(s.total))}${s.monthly ? ` <sub>(${money(Math.round(s.monthly))}/mo)</sub>` : ""} | ${md(s.sources.join(", "))} |`).join("\n")}\n`);
-    if (D.leaders.length > 10) {
-      const alpha = D.leaders.slice().sort((a, b) => a.name.localeCompare(b.name)).slice(0, 300);
-      parts.push(`\n<details>\n<summary><b>All donors (${int(D.leaders.length)})</b></summary>\n\n${alpha.map((s) => `${md(s.name)} <sub>${money(Math.round(s.total))}</sub>`).join(" · ")}\n\n</details>\n`);
-    }
-  }
-  if (D.payments.length) {
-    parts.push(`\n<details>\n<summary><b>Latest payments</b></summary>\n\n| Date | From | Message | Source | Amount |\n|---|---|---|---|---:|\n${D.payments.slice(0, 15).map((p) => `| ${date(p.date)} | ${md(p.name || "Anonymous")} | ${md(p.message ? p.message.slice(0, 80) : "")} | ${md(p.sourceLabel)} | ${p.value != null ? `${p.currency !== BASE ? "≈ " : ""}${money(p.value)}` : money(p.amount, p.currency)} |`).join("\n")}\n\n</details>\n`);
-  }
+if (D.leaders.length || D.payments.length) {
+  parts.push(heading("Supporters", "Thank you. Anonymous gifts count toward the totals but are never named."));
+  const anon = D.payments.filter((p) => !p.name);
+  if (D.leaders.length) parts.push(`\n| | Name | Total | Gifts |\n|--:|---|--:|--:|\n${D.leaders.slice(0, 8).map((s, i) => `| ${i + 1} | **${md(s.name)}** | ${money(Math.round(s.total))}${s.monthly ? ` <sub>${money(Math.round(s.monthly))}/mo</sub>` : ""} | ${s.count} |`).join("\n")}\n`);
+  if (anon.length) parts.push(`\n<sub>Plus ${anon.length} anonymous gift${anon.length === 1 ? "" : "s"} totalling ${money(Math.round(anon.reduce((t, p) => t + (p.value || 0), 0)))}.</sub>\n`);
 }
 
-else parts.push(heading("People who've helped"), EMPTY);
-
-// ── Spending
-if (D.expenses.length) {
-  parts.push(heading("Where the money goes", "Every expense is a GitHub issue or an Open Collective expense, with the receipt attached."));
-  if (D.byCategory.length) {
-    const total = D.byCategory.reduce((t, c) => t + c.value, 0) || 1;
-    parts.push(`\n${D.byCategory.slice(0, 6).map((c) => `\`${c.category}\` ${money(Math.round(c.value))} <sub>(${Math.round((c.value / total) * 100)}%)</sub>`).join(" · ")}\n`);
-  }
-  const rcpt = (e) => (e.receipts || []).map((r, i) => `[${r.kind === "image" ? "🧾" : r.kind === "file" ? "📄" : "↗"}${e.receipts.length > 1 ? i + 1 : ""}](${r.url})`).join(" ") || "–";
-  parts.push(`\n| Date | Expense | Category | Receipt | Amount |\n|---|---|---|:-:|---:|\n${D.expenses.slice(0, 12).map((e) => `| ${date(e.date)} | [${md(e.title)}](${e.url})${e.vendor ? ` <sub>${md(e.vendor)}</sub>` : ""}${e.project ? ` <sub>· ${md(e.project.title)}</sub>` : ""} | ${md(e.category || "–")} | ${rcpt(e)} | ${e.currency !== BASE && e.value != null ? `≈ ${money(e.value)}` : money(e.amount, e.currency)} |`).join("\n")}\n`);
-  if (D.expenses.length > 12) parts.push(`\n<sub>${D.expenses.length - 12} more on the ${siteUrl ? `<a href="${attr(siteUrl)}#spending">live site</a>` : "live site"}.</sub>\n`);
+// ── Ways to support (crypto addresses; platform buttons are at the top)
+const wallets = ["bitcoin", "ethereum"].filter((id) => SRC[id]);
+if (wallets.length) {
+  parts.push(heading("Crypto"));
+  parts.push(`\n${wallets.map((id) => `**${LABELS[id]}**\n\`\`\`\n${SRC[id]}\n\`\`\``).join("\n\n")}\n`);
 }
-
-else parts.push(heading("Where the money goes"), EMPTY);
 
 // ── Videos
 const vids = (snap.youtube && snap.youtube.videos) || [];
 if (vids.length) {
   parts.push(heading("Latest videos", `From <a href="${attr(snap.youtube.url)}">${xml(snap.youtube.title || "my channel")}</a>.`));
-  const v6 = vids.slice(0, 6);
-  const rows = [];
-  for (let i = 0; i < v6.length; i += 3) rows.push(`<tr>\n${v6.slice(i, i + 3).map((v) => `<td width="33%" valign="top"><a href="https://www.youtube.com/watch?v=${attr(v.id)}"><img alt="${attr(v.title)}" src="https://i.ytimg.com/vi/${attr(v.id)}/hqdefault.jpg" width="100%"></a><br><sub><b>${xml(v.title)}</b><br>${date(v.published)}${v.views != null ? ` · ${int(v.views)} views` : ""}</sub></td>`).join("\n")}\n</tr>`);
-  parts.push(`\n<table>\n${rows.join("\n")}\n</table>\n`);
+  const v6 = vids.slice(0, 3);
+  parts.push(`\n<table>\n<tr>\n${v6.map((v) => `<td width="33%" valign="top"><a href="https://www.youtube.com/watch?v=${attr(v.id)}"><img alt="${attr(v.title)}" src="https://i.ytimg.com/vi/${attr(v.id)}/hqdefault.jpg" width="100%"></a><br><sub><b>${xml(v.title)}</b><br>${date(v.published)}</sub></td>`).join("\n")}\n</tr>\n</table>\n`);
 }
 
-else parts.push(heading("Latest videos"), EMPTY);
-
-// ── GitHub
-const repos = g.repos || [];
-if (g.contributions || repos.length) {
-  parts.push(heading("On GitHub"));
-  if (g.contributions && g.contributions.weeks) {
-    both("contributions", (t) => {
-      const weeks = g.contributions.weeks.slice(-53), cell = 18, gap = 4, x0 = 40, y0 = 78;
-      const H = y0 + 7 * (cell + gap) + 30;
-      let out = label(40, 42, "Contributions · last year", t) + text(1240, 44, int(g.contributions.total), { size: 22, mono: true, fill: t.ink, anchor: "end" });
-      const mFmt = new Intl.DateTimeFormat(LOCALE, { month: "short", timeZone: "UTC" }); let last = -1;
-      weeks.forEach((w, wi) => {
-        const f = w.days[0]; if (f) { const m = new Date(f.date + "T00:00:00Z").getUTCMonth(); if (m !== last && wi < weeks.length - 2) { out += text(x0 + wi * (cell + gap), y0 - 10, mFmt.format(new Date(f.date + "T00:00:00Z")), { size: 11, mono: true, fill: t.muted }); last = m; } }
-        for (const d of w.days) { const dow = new Date(d.date + "T00:00:00Z").getUTCDay(); out += `<rect x="${x0 + wi * (cell + gap)}" y="${y0 + dow * (cell + gap)}" width="${cell}" height="${cell}" rx="4" fill="${t.hm[d.level] || t.hm[0]}"/>`; }
-      });
-      return frame(1280, H, t, out);
-    });
-    parts.push(`\n${pic("contributions", `${g.contributions.total} contributions in the last year`)}\n`);
-  }
-  const featured = (g.pinned && g.pinned.length ? g.pinned : repos.filter((r) => !r.archived).sort((a, b) => b.stars - a.stars || String(b.pushedAt).localeCompare(String(a.pushedAt)))).slice(0, 6);
-  if (featured.length) {
-    const cells = featured.map((r, i) => {
-      both(`repo-${i}`, (t) => {
-        const d = wrap(r.description || "No description", 14, 520, 2);
-        return frame(600, 150, t,
-          text(28, 50, fit(r.name, 19, 420, true), { size: 19, mono: true, weight: 600, fill: t.ink }) +
-          text(572, 50, r.pushedAt ? date(r.pushedAt) : "", { size: 12, mono: true, fill: t.muted, anchor: "end" }) +
-          d.map((l, k) => text(28, 80 + k * 20, l, { size: 14, fill: t.muted })).join("") +
-          text(28, 128, [r.language, `★ ${int(r.stars)}`, r.forks ? `⑂ ${int(r.forks)}` : null].filter(Boolean).join("   ·   "), { size: 13, mono: true, fill: t.ink2 }));
-      });
-      return `<td width="50%" valign="top"><a href="${attr(r.url)}">${pic(`repo-${i}`, `${r.name}: ${r.description || ""}`)}</a></td>`;
-    });
-    const rows = [];
-    for (let i = 0; i < cells.length; i += 2) rows.push(`<tr>\n${cells[i]}\n${cells[i + 1] || "<td></td>"}\n</tr>`);
-    parts.push(`\n<table>\n${rows.join("\n")}\n</table>\n`);
-  }
-}
-
-else parts.push(heading("On GitHub"), EMPTY);
-
-// ── Contact
+// ── Get in touch
 const contact = [];
 const email = C.email || (P && P.email);
 const LOGO = { github: "github", twitter: "x", instagram: "instagram", youtube: "youtube", tiktok: "tiktok", linkedin: "linkedin", threads: "threads", bluesky: "bluesky", twitch: "twitch", reddit: "reddit", facebook: "facebook", mastodon: "mastodon", npm: "npm" };
-const socialLinks = L.socialLinks({ profile: P, socials: g.socials, overrides: C.socials });
-const gh0 = socialLinks.find((x) => x.provider === "github");
-if (gh0) contact.push(`<a href="${attr(gh0.url)}"><img alt="GitHub" src="${sh("GitHub", gh0.handle, "github")}"></a>`);
 if (email) contact.push(`<a href="mailto:${attr(email)}"><img alt="Email" src="${sh("email", email, "maildotru")}"></a>`);
-if (C.discordServerId) contact.push(`<a href="${attr(C.discordInvite || (snap.discord && snap.discord.invite) || "")}"><img alt="Discord" src="https://img.shields.io/discord/${encodeURIComponent(C.discordServerId)}?style=for-the-badge&logo=discord&logoColor=white&label=discord&color=111111&labelColor=2b2b2b"></a>`);
-for (const x of socialLinks.filter((x) => x.provider !== "github")) contact.push(`<a href="${attr(x.url)}"><img alt="${attr(x.name)}" src="${sh(x.name, x.handle, LOGO[x.provider] || "")}"></a>`);
-if (contact.length) {
-  parts.push(heading("Get in touch"));
-  parts.push(`\n<p>\n${contact.join("\n")}\n</p>\n`);
-}
-
-else parts.push(heading("Get in touch"), EMPTY);
+for (const x of L.socialLinks({ profile: P, socials: g.socials, overrides: C.socials })) contact.push(`<a href="${attr(x.url)}"><img alt="${attr(x.name)}" src="${sh(x.name, x.handle, LOGO[x.provider] || "")}"></a>`);
+if (contact.length) parts.push(heading("Get in touch"), `\n<p>\n${contact.join("\n")}\n</p>\n`);
 
 // ── Footer
 const brand = (P && P.company ? P.company.replace(/^@/, "") : P && P.name) || "";

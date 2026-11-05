@@ -51,21 +51,6 @@ if (C.github || C.repo) {
       const d = await gql(env.GITHUB_TOKEN, `query($l:String!){ user(login:$l){ status{ message emoji indicatesLimitedAvailability } } }`, { l: C.github });
       g.status = d.user && d.user.status ? d.user.status : null;
     } catch (e) { g.errors.push(`status: ${e.message}`); }
-    try {
-      const LEVEL = { NONE: 0, FIRST_QUARTILE: 1, SECOND_QUARTILE: 2, THIRD_QUARTILE: 3, FOURTH_QUARTILE: 4 };
-      const d = await gql(env.GITHUB_TOKEN, `query($l:String!){ user(login:$l){
-        contributionsCollection{ contributionCalendar{ totalContributions weeks{ contributionDays{ date contributionCount contributionLevel } } } }
-        pinnedItems(first:6, types:REPOSITORY){ nodes{ ... on Repository{ name description url homepageUrl stargazerCount forkCount pushedAt isArchived primaryLanguage{ name } } } } } }`, { l: C.github });
-      const cal = d.user.contributionsCollection.contributionCalendar;
-      g.contributions = {
-        total: cal.totalContributions,
-        weeks: cal.weeks.map((w) => ({ days: w.contributionDays.map((x) => ({ date: x.date, count: x.contributionCount, level: LEVEL[x.contributionLevel] ?? 0 })) })),
-      };
-      g.pinned = d.user.pinnedItems.nodes.map((r) => ({
-        name: r.name, description: r.description, url: r.url, homepage: r.homepageUrl, stars: r.stargazerCount,
-        forks: r.forkCount, pushedAt: r.pushedAt, archived: r.isArchived, language: r.primaryLanguage && r.primaryLanguage.name,
-      }));
-    } catch (e) { g.errors.push(`contributions: ${e.message}`); }
   }
   snapshot.github = g;
   if (g.errors.length) snapshot.errors.github = g.errors.join("; ");

@@ -1,0 +1,93 @@
+{
+  "_about": "Entries that don't come from a platform: cash, bank transfers, and sample rows. Rows with \"sample\": true are placeholders the owner asked for. Delete them when real entries arrive. Receipts: put an https link in \"receipt\".",
+  "donations": [
+    {
+      "id": "s1",
+      "date": "2026-08-14",
+      "amount": 120,
+      "currency": "USD",
+      "name": "Ahmad",
+      "message": "Getting things started",
+      "sample": true
+    },
+    {
+      "id": "s2",
+      "date": "2026-09-03",
+      "amount": 45,
+      "currency": "USD",
+      "anonymous": true,
+      "message": "Good luck with it",
+      "sample": true
+    },
+    {
+      "id": "s3",
+      "date": "2026-09-21",
+      "amount": 250,
+      "currency": "USD",
+      "name": "Ahmad",
+      "message": "Hosting for the year",
+      "sample": true
+    },
+    {
+      "id": "s4",
+      "date": "2026-10-09",
+      "amount": 75,
+      "currency": "USD",
+      "name": "Anon",
+      "message": "Keep going",
+      "sample": true
+    },
+    {
+      "id": "s5",
+      "date": "2026-10-27",
+      "amount": 30,
+      "currency": "USD",
+      "anonymous": true,
+      "sample": true
+    },
+    {
+      "id": "s6",
+      "date": "2026-11-02",
+      "amount": 180,
+      "currency": "USD",
+      "name": "Ahmad",
+      "message": "Workstation fund",
+      "sample": true
+    }
+  ],
+  "expenses": [
+    {
+      "id": "e1",
+      "date": "2026-09-25",
+      "title": "Domain renewal",
+      "amount": 14,
+      "currency": "USD",
+      "vendor": "Namecheap",
+      "category": "infra",
+      "receipt": "",
+      "sample": true
+    },
+    {
+      "id": "e2",
+      "date": "2026-10-12",
+      "title": "VPS, 3 months",
+      "amount": 36,
+      "currency": "USD",
+      "vendor": "Hetzner",
+      "category": "infra",
+      "receipt": "",
+      "sample": true
+    },
+    {
+      "id": "e3",
+      "date": "2026-10-30",
+      "title": "USB microphone",
+      "amount": 89,
+      "currency": "USD",
+      "vendor": "Amazon",
+      "category": "hardware",
+      "receipt": "",
+      "sample": true
+    }
+  ]
+}

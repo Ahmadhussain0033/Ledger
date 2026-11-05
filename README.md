@@ -2,75 +2,62 @@
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/header-dark.svg"><img alt="Ahmad Hussain · Infomation Theoretic at Heart" src="docs/readme/header-light.svg" width="100%"></picture>
 
-<a href="https://ahmadhussain0033.github.io/Ledger/"><img alt="Live site" src="https://img.shields.io/badge/live-site-111111?style=for-the-badge&labelColor=2b2b2b"></a>
-<a href="https://github.com/ahmadhussain0033"><img alt="GitHub followers" src="https://img.shields.io/github/followers/ahmadhussain0033?style=for-the-badge&logo=github&logoColor=white&label=followers&color=111111&labelColor=2b2b2b"></a>
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/stats-dark.svg"><img alt="Contributions: 47, Public repos: 6, Followers: 0" src="docs/readme/stats-light.svg" width="100%"></picture>
+<a href="https://ahmadhussain0033.github.io/Ledger/"><img alt="Open the live ledger" src="https://img.shields.io/badge/open-live%20ledger-111111?style=for-the-badge&labelColor=2b2b2b"></a>
 
 </div>
 
 
-## `01` · What I'm working on
+> **My open ledger.** What I'm building, what it costs, who's chipped in, and where every dollar goes. Every number here is pulled from the source and refreshed automatically.
 
 
-<sub>Nothing here yet.</sub>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/money-dark.svg"><img alt="Balance $561: $700 in, $139 out" src="docs/readme/money-light.svg" width="100%"></picture>
 
 
-## `02` · Funding drives & goals
+## `01` · The ledger
+
+<sub>Latest money in and out. Search the full history and every receipt on the <a href="https://ahmadhussain0033.github.io/Ledger/#search">live ledger</a>.</sub>
 
 
-<sub>Nothing here yet.</sub>
+| Date | | Entry | Amount | Receipt |
+|---|:-:|---|--:|:-:|
+| Nov 2, 2026 | in | **Ahmad** <sub>Workstation fund · Direct</sub> <sub>· <i>sample</i></sub> | +$180 |  |
+| Oct 30, 2026 | out | **USB microphone** <sub>Amazon · hardware</sub> <sub>· <i>sample</i></sub> | −$89 | <sub>none yet</sub> |
+| Oct 27, 2026 | in | **Anonymous** <sub>Direct</sub> <sub>· <i>sample</i></sub> | +$30 |  |
+| Oct 12, 2026 | out | **VPS, 3 months** <sub>Hetzner · infra</sub> <sub>· <i>sample</i></sub> | −$36 | <sub>none yet</sub> |
+| Oct 9, 2026 | in | **Anon** <sub>Keep going · Direct</sub> <sub>· <i>sample</i></sub> | +$75 |  |
+| Sep 25, 2026 | out | **Domain renewal** <sub>Namecheap · infra</sub> <sub>· <i>sample</i></sub> | −$14 | <sub>none yet</sub> |
+| Sep 21, 2026 | in | **Ahmad** <sub>Hosting for the year · Direct</sub> <sub>· <i>sample</i></sub> | +$250 |  |
+| Sep 3, 2026 | in | **Anonymous** <sub>Good luck with it · Direct</sub> <sub>· <i>sample</i></sub> | +$45 |  |
+| Aug 14, 2026 | in | **Ahmad** <sub>Getting things started · Direct</sub> <sub>· <i>sample</i></sub> | +$120 |  |
 
 
-## `03` · Milestones
+<sub>Spent by category: <code>hardware</code> $89 · <code>infra</code> $50</sub>
 
 
-<sub>Nothing here yet.</sub>
+<sub><i>sample</i> rows are placeholders until real entries come in.</sub>
 
 
-## `04` · Ways to support
+## `02` · Milestones
 
 
-<sub>Nothing here yet.</sub>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/milestones-dark.svg"><img alt="$500 raised, $250 raised, $100 raised, First donation" src="docs/readme/milestones-light.svg" width="100%"></picture>
 
 
-## `05` · People who've helped
+## `03` · Supporters
+
+<sub>Thank you. Anonymous gifts count toward the totals but are never named.</sub>
 
 
-<sub>Nothing here yet.</sub>
+| | Name | Total | Gifts |
+|--:|---|--:|--:|
+| 1 | **Ahmad** | $550 | 3 |
+| 2 | **Anon** | $75 | 1 |
 
 
-## `06` · Where the money goes
+<sub>Plus 2 anonymous gifts totalling $75.</sub>
 
 
-<sub>Nothing here yet.</sub>
-
-
-## `07` · Latest videos
-
-
-<sub>Nothing here yet.</sub>
-
-
-## `08` · On GitHub
-
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/contributions-dark.svg"><img alt="47 contributions in the last year" src="docs/readme/contributions-light.svg" width="100%"></picture>
-
-
-<table>
-<tr>
-<td width="50%" valign="top"><a href="https://github.com/Ahmadhussain0033/run-xero-identity"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/repo-0-dark.svg"><img alt="run-xero-identity: " src="docs/readme/repo-0-light.svg" width="100%"></picture></a></td>
-<td width="50%" valign="top"><a href="https://github.com/Ahmadhussain0033/Ledger"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/repo-1-dark.svg"><img alt="Ledger: " src="docs/readme/repo-1-light.svg" width="100%"></picture></a></td>
-</tr>
-<tr>
-<td width="50%" valign="top"><a href="https://github.com/Ahmadhussain0033/About-Me"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/repo-2-dark.svg"><img alt="About-Me: Me and All the Information I want" src="docs/readme/repo-2-light.svg" width="100%"></picture></a></td>
-<td></td>
-</tr>
-</table>
-
-
-## `09` · Get in touch
+## `04` · Get in touch
 
 
 <p>

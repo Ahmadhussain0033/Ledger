@@ -83,7 +83,7 @@
   /* ─────────── GitHub (profile, socials, projects, drives, expenses) ─────────── */
   async function github({ login, repo, label = "funding", expenseLabel = "expense", headers = {} }) {
     const h = { Accept: "application/vnd.github+json", ...headers };
-    const out = { updatedAt: nowISO(), profile: null, socials: [], repos: [], projects: [], drives: [], expenses: [], errors: [] };
+    const out = { updatedAt: nowISO(), profile: null, socials: [], projects: [], drives: [], expenses: [], errors: [] };
     const tasks = [];
 
     if (login) {
@@ -98,15 +98,6 @@
       tasks.push(getJSON(`${GH}/users/${encodeURIComponent(login)}/social_accounts`, { headers: h }).then((s) => {
         out.socials = (Array.isArray(s) ? s : []).map((x) => ({ provider: x.provider, url: x.url }));
       }).catch((e) => out.errors.push(`socials: ${e.message}`)));
-    }
-
-    if (login) {
-      tasks.push(getJSON(`${GH}/users/${encodeURIComponent(login)}/repos?sort=pushed&per_page=100&type=owner`, { headers: h }).then((list) => {
-        out.repos = list.filter((r) => !r.fork && !r.private).map((r) => ({
-          name: r.name, description: r.description, url: r.html_url, homepage: r.homepage, language: r.language,
-          stars: r.stargazers_count, forks: r.forks_count, topics: r.topics || [], pushedAt: r.pushed_at, archived: r.archived,
-        }));
-      }).catch((e) => out.errors.push(`repos: ${e.message}`)));
     }
 
     if (repo) {
@@ -200,6 +191,33 @@
       expensesPartial: ex.totalCount > ex.nodes.length,
       partial: tx.totalCount > tx.nodes.length,
       note: tx.totalCount > tx.nodes.length ? `Showing the latest ${tx.nodes.length} of ${tx.totalCount} contributions` : null,
+    };
+  }
+
+  /* ─────────── Direct entries (data/manual.json) ───────────
+   * Money that doesn't come through a platform: cash, bank transfers, and any
+   * sample rows (marked "sample": true). Each expense may carry a receipt URL.
+   */
+  function manual(json) {
+    const j = json || {};
+    const kind = (u) => (/\.(png|jpe?g|gif|webp|avif)(\?|$)/i.test(u) || /user-attachments\/assets\//.test(u) ? "image" : /\.pdf(\?|$)/i.test(u) ? "file" : "link");
+    const payments = (j.donations || []).filter((d) => d && Number(d.amount) > 0 && d.date).map((d, i) => ({
+      id: `manual-${d.id || i}`, date: new Date(d.date).toISOString(), amount: Number(d.amount), currency: (d.currency || "USD").toUpperCase(),
+      name: d.anonymous || !d.name ? null : String(d.name), message: d.message || null, url: d.url || null, sample: !!d.sample,
+    }));
+    const expenses = (j.expenses || []).filter((e) => e && Number(e.amount) > 0 && e.date).map((e, i) => {
+      const urls = [].concat(e.receipt || [], e.receipts || []).filter((u) => /^https:\/\//.test(u));
+      return {
+        id: `manual-ex-${e.id || i}`, title: e.title || "Expense", date: new Date(e.date).toISOString(), amount: Number(e.amount),
+        currency: (e.currency || "USD").toUpperCase(), vendor: e.vendor || null, category: e.category || null, tag: e.tag ? String(e.tag).replace(/^#/, "").toLowerCase() : null,
+        note: e.note || null, url: urls[0] || null, receipts: urls.map((u) => ({ url: u, name: "Receipt", kind: kind(u) })), sample: !!e.sample,
+      };
+    });
+    const named = new Set(payments.filter((p) => p.name).map((p) => p.name.toLowerCase()));
+    return {
+      id: "manual", label: "Direct", url: null, updatedAt: nowISO(), currency: payments[0] ? payments[0].currency : "USD",
+      received: null, sumPayments: true, balance: null, supporters: named.size + payments.filter((p) => !p.name).length || null,
+      recurring: null, goal: null, payments, backers: [], expenses, partial: false, note: null,
     };
   }
 
@@ -472,5 +490,5 @@
     return out;
   }
 
-  root.LedgerSources = { github, openCollective, liberapay, bitcoin, ethereum, discord, fiatRates, summarize, socialLinks, parseMeta, stripMeta, receiptsOf, getJSON };
+  root.LedgerSources = { github, openCollective, liberapay, bitcoin, ethereum, discord, fiatRates, summarize, socialLinks, manual, parseMeta, stripMeta, receiptsOf, getJSON };
 })(typeof window !== "undefined" ? window : globalThis);
