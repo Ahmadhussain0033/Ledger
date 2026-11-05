@@ -1,6 +1,6 @@
 <div align="center">
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/header-dark.svg"><img alt="Ahmad Hussain · Infomation Theoretic at Heart" src="docs/readme/header-light.svg" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/header-dark.svg"><img alt="Ahemod · Infomation Theoretic at Heart" src="docs/readme/header-light.svg" width="100%"></picture>
 
 <a href="https://ahmadhussain0033.github.io/Ledger/"><img alt="Open the live ledger" src="https://img.shields.io/badge/open-live%20ledger-111111?style=for-the-badge&labelColor=2b2b2b"></a>
 
