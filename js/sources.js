@@ -34,6 +34,8 @@
   }
 
   const nowISO = () => new Date().toISOString();
+  // "2026-10-30" alone would parse as UTC midnight and show as Oct 29 west of UTC; pin date-only values to midday.
+  const dayISO = (v) => new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(v).trim()) ? `${String(v).trim()}T12:00:00Z` : v).toISOString();
 
   /* ─────────── issue / milestone metadata ───────────
    * Lines like these anywhere in an issue body or milestone description:
@@ -136,7 +138,7 @@
         out.expenses = list.filter((i) => !i.pull_request).map((i) => {
           const meta = parseMeta(i.body);
           const labels = i.labels.map((l) => (typeof l === "string" ? l : l.name)).filter((n) => n && n.toLowerCase() !== expenseLabel.toLowerCase());
-          const when = meta.date && !Number.isNaN(Date.parse(meta.date)) ? new Date(meta.date).toISOString() : i.created_at;
+          const when = meta.date && !Number.isNaN(Date.parse(meta.date)) ? dayISO(meta.date) : i.created_at;
           return {
             id: `gh-${i.number}`, number: i.number, title: i.title, url: i.html_url, source: "github",
             date: when, amount: meta.amount ?? null, currency: meta.currency || null,
@@ -202,7 +204,7 @@
     const j = json || {};
     const kind = (u) => (/\.(png|jpe?g|gif|webp|avif)(\?|$)/i.test(u) || /user-attachments\/assets\//.test(u) ? "image" : /\.pdf(\?|$)/i.test(u) ? "file" : "link");
     const payments = (j.donations || []).filter((d) => d && Number(d.amount) > 0 && d.date).map((d, i) => ({
-      id: `manual-${d.id || i}`, date: new Date(d.date).toISOString(), amount: Number(d.amount), currency: (d.currency || "USD").toUpperCase(),
+      id: `manual-${d.id || i}`, date: dayISO(d.date), amount: Number(d.amount), currency: (d.currency || "USD").toUpperCase(),
       name: d.anonymous || !d.name ? null : String(d.name), message: d.message || null, url: d.url || null,
     }));
     const expenses = (j.expenses || []).filter((e) => e && Number(e.amount) > 0 && e.date).map((e, i) => {
@@ -210,7 +212,7 @@
       const urls = given.filter((u) => /^https:\/\//.test(u));
       const receiptNote = given.find((u) => !/^https?:\/\//.test(u)) || null;
       return {
-        id: `manual-ex-${e.id || i}`, title: e.title || "Expense", date: new Date(e.date).toISOString(), amount: Number(e.amount),
+        id: `manual-ex-${e.id || i}`, title: e.title || "Expense", date: dayISO(e.date), amount: Number(e.amount),
         currency: (e.currency || "USD").toUpperCase(), vendor: e.vendor || null, category: e.category || null, tag: e.tag ? String(e.tag).replace(/^#/, "").toLowerCase() : null,
         note: e.note || null, url: urls[0] || null, receipts: urls.map((u) => ({ url: u, name: "Receipt", kind: kind(u) })), receiptNote,
       };

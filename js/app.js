@@ -30,7 +30,9 @@
   };
   const compactMoney = (n) => { try { return nf({ style: "currency", currency: BASE, notation: "compact", maximumFractionDigits: 1 }).format(n); } catch { return String(Math.round(n)); } };
   const intFmt = (n) => nf({ maximumFractionDigits: 0 }).format(n);
-  const dFmt = new Intl.DateTimeFormat(LOCALE, { month: "short", day: "numeric", year: "numeric" });
+  // Dates show in the owner's timezone (the ledger's own calendar), the same for every visitor.
+  const ZONE = (() => { try { if (!TZ) return undefined; new Intl.DateTimeFormat("en-US", { timeZone: TZ }); return TZ; } catch { return undefined; } })();
+  const dFmt = new Intl.DateTimeFormat(LOCALE, { month: "short", day: "numeric", year: "numeric", timeZone: ZONE });
   const fmtDate = (iso) => (iso ? dFmt.format(new Date(iso)) : "–");
   const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: "auto" });
   const ago = (iso) => {
@@ -680,7 +682,7 @@
     el("span", { class: "r-main" }, el("b", {}, title), sub ? el("span", { class: "r-sub" }, sub) : null),
     el("span", { class: "r-meta" }, meta || "", extra || null),
     el("span", { class: "r-val mono" }, value || ""));
-  const shortDate = (iso) => (iso ? new Intl.DateTimeFormat(LOCALE, { month: "short", day: "numeric" }).format(new Date(iso)) : "");
+  const shortDate = (iso) => (iso ? new Intl.DateTimeFormat(LOCALE, { month: "short", day: "numeric", timeZone: ZONE }).format(new Date(iso)) : "");
 
   function renderRecent(D) {
     const list = $("#recentList");
@@ -771,7 +773,7 @@
     const cats = D.byCategory.slice(0, 5), totalC = cats.reduce((t, c) => t + c.value, 0) || 1;
     $("#spendSummary").replaceChildren(
       el("div", { class: "next-line" },
-        el("span", {}, el("b", { class: "mono" }, money(Math.round(D.spent))), el("span", { class: "muted" }, ` spent · ${intFmt(D.expenses.length)} expense${D.expenses.length === 1 ? "" : "s"} · ${intFmt(receipts)} receipt${receipts === 1 ? "" : "s"}`)),
+        el("span", {}, el("b", { class: "mono" }, money(Math.round(D.spent))), el("span", { class: "muted" }, ` spent · ${intFmt(D.expenses.length)} expense${D.expenses.length === 1 ? "" : "s"}${receipts ? ` · ${intFmt(receipts)} receipt${receipts === 1 ? "" : "s"}` : ""}`)),
         D.raised > 0 ? el("span", { class: "mono muted" }, `${Math.round((D.spent / D.raised) * 100)}% of raised`) : null),
       cats.length > 1 ? el("div", { class: "lang-bar slim-bar" }, cats.map((c, i) => el("i", { style: `flex:${Math.max(c.value, totalC * 0.01)};--o:${1 - i * 0.16}`, title: `${c.category}: ${money(Math.round(c.value))}` }))) : null,
       cats.length > 1 ? el("ul", { class: "lang-list small" }, cats.map((c, i) => el("li", {}, el("span", { class: "lang-dot", style: `--o:${1 - i * 0.16}` }), c.category))) : null);

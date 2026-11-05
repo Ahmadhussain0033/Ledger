@@ -39,7 +39,8 @@ const money = (n, cur = BASE) => {
   catch { return `${n.toFixed(2)} ${cur}`; }
 };
 const int = (n) => new Intl.NumberFormat(LOCALE).format(n || 0);
-const date = (iso) => (iso ? new Intl.DateTimeFormat(LOCALE, { month: "short", day: "numeric", year: "numeric" }).format(new Date(iso)) : "–");
+const ZONE = (() => { try { if (!C.timezone) return "UTC"; new Intl.DateTimeFormat("en-US", { timeZone: C.timezone }); return C.timezone; } catch { return "UTC"; } })();
+const date = (iso) => (iso ? new Intl.DateTimeFormat(LOCALE, { month: "short", day: "numeric", year: "numeric", timeZone: ZONE }).format(new Date(iso)) : "–");
 const xml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const md = (s) => String(s ?? "").replace(/[|<>\[\]\\`*_]/g, (c) => `\\${c}`).replace(/\n/g, " ");
 const attr = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");

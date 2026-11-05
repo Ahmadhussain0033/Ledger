@@ -22,7 +22,7 @@ window.LEDGER_CONFIG = {
   currency: "USD",                       // everything is converted to this
   locale: "en-US",
   font: "geist",                         // geist · inter · editorial · grotesk · bricolage · plex · manrope · syne · mono (visitors can switch with ⌘K)
-  timezone: "",                          // IANA name, e.g. "America/New_York" → local-time widget
+  timezone: "Asia/Karachi",             // Pakistan; drives the local-time tile
   email: "",                             // blank → public email on your GitHub profile, if any
 
   youtube: "",                           // channel ID ("UC…") or @handle → Videos section (synced by the Action)

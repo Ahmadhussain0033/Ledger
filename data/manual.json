@@ -53,31 +53,28 @@
     {
       "id": "e1",
       "date": "2026-09-25",
-      "title": "Domain renewal",
-      "amount": 14,
+      "title": "Cloud compute for algorithmic runs",
+      "amount": 85,
       "currency": "USD",
-      "vendor": "Namecheap",
-      "category": "infra",
+      "category": "compute",
       "receipt": "personal"
     },
     {
       "id": "e2",
       "date": "2026-10-12",
-      "title": "VPS, 3 months",
-      "amount": 36,
+      "title": "Cloud storage",
+      "amount": 15,
       "currency": "USD",
-      "vendor": "Hetzner",
-      "category": "infra",
+      "category": "storage",
       "receipt": "personal"
     },
     {
       "id": "e3",
       "date": "2026-10-30",
-      "title": "USB microphone",
-      "amount": 89,
+      "title": "Living expenses",
+      "amount": 200,
       "currency": "USD",
-      "vendor": "Amazon",
-      "category": "hardware",
+      "category": "living",
       "receipt": "personal"
     }
   ]
