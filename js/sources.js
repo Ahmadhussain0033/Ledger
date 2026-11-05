@@ -195,22 +195,24 @@
   }
 
   /* ─────────── Direct entries (data/manual.json) ───────────
-   * Money that doesn't come through a platform: cash, bank transfers, and any
-   * sample rows (marked "sample": true). Each expense may carry a receipt URL.
+   * Money that doesn't come through a platform: cash and bank transfers.
+   * An expense's "receipt" is a link, or a short note such as "personal".
    */
   function manual(json) {
     const j = json || {};
     const kind = (u) => (/\.(png|jpe?g|gif|webp|avif)(\?|$)/i.test(u) || /user-attachments\/assets\//.test(u) ? "image" : /\.pdf(\?|$)/i.test(u) ? "file" : "link");
     const payments = (j.donations || []).filter((d) => d && Number(d.amount) > 0 && d.date).map((d, i) => ({
       id: `manual-${d.id || i}`, date: new Date(d.date).toISOString(), amount: Number(d.amount), currency: (d.currency || "USD").toUpperCase(),
-      name: d.anonymous || !d.name ? null : String(d.name), message: d.message || null, url: d.url || null, sample: !!d.sample,
+      name: d.anonymous || !d.name ? null : String(d.name), message: d.message || null, url: d.url || null,
     }));
     const expenses = (j.expenses || []).filter((e) => e && Number(e.amount) > 0 && e.date).map((e, i) => {
-      const urls = [].concat(e.receipt || [], e.receipts || []).filter((u) => /^https:\/\//.test(u));
+      const given = [].concat(e.receipt || [], e.receipts || []).map((u) => String(u).trim()).filter(Boolean);
+      const urls = given.filter((u) => /^https:\/\//.test(u));
+      const receiptNote = given.find((u) => !/^https?:\/\//.test(u)) || null;
       return {
         id: `manual-ex-${e.id || i}`, title: e.title || "Expense", date: new Date(e.date).toISOString(), amount: Number(e.amount),
         currency: (e.currency || "USD").toUpperCase(), vendor: e.vendor || null, category: e.category || null, tag: e.tag ? String(e.tag).replace(/^#/, "").toLowerCase() : null,
-        note: e.note || null, url: urls[0] || null, receipts: urls.map((u) => ({ url: u, name: "Receipt", kind: kind(u) })), sample: !!e.sample,
+        note: e.note || null, url: urls[0] || null, receipts: urls.map((u) => ({ url: u, name: "Receipt", kind: kind(u) })), receiptNote,
       };
     });
     const named = new Set(payments.filter((p) => p.name).map((p) => p.name.toLowerCase()));

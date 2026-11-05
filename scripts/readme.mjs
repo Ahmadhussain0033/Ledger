@@ -25,7 +25,7 @@ const g = snap.github || {};
 const P = g.profile || null;
 const LABELS = { opencollective: "Open Collective", liberapay: "Liberapay", githubSponsors: "GitHub Sponsors", patreon: "Patreon", buymeacoffee: "Buy Me a Coffee", kofi: "Ko-fi", paypal: "PayPal", bitcoin: "Bitcoin", ethereum: "Ethereum" };
 const sources = Object.entries(snap.sources || {}).map(([id, data]) => ({ id, label: LABELS[id] || id, data }));
-// Direct entries (cash, transfers, sample rows) from data/manual.json
+// Direct entries (cash, transfers) from data/manual.json
 try { sources.push({ id: "manual", label: "Direct", data: L.manual(JSON.parse(await readFile(env.MANUAL_IN || new URL("data/manual.json", root), "utf8"))) }); } catch {}
 const D = L.summarize({ base: BASE, github: g, sources, usdPer: (snap.rates && snap.rates.usdPer) || { USD: 1 } });
 const siteUrl = C.siteUrl || (C.github && C.repo ? `https://${C.github.toLowerCase()}.github.io/${C.repo.split("/")[1]}/` : null);
@@ -112,7 +112,6 @@ function months(n) {
 const parts = [];
 const configured = Object.keys(LABELS).filter((id) => (id === "githubSponsors" ? SRC[id] && C.github : SRC[id]));
 const balance = D.raised - D.spent;
-const anySample = D.payments.some((p) => p.sample) || D.expenses.some((e) => e.sample);
 
 // ── Header card: who, status, and a real mini-chart of money in per month
 const name = P ? P.name : C.github || "Ledger";
@@ -180,16 +179,15 @@ const heading = (title, sub) => { secN++; return `\n## \`${String(secN).padStart
 
 // ── The ledger: latest money in and out, with receipts
 const entries = [
-  ...D.payments.map((p) => ({ date: p.date, who: p.name || "Anonymous", note: [p.message, p.sourceLabel].filter(Boolean).join(" · "), sign: "+", value: p.value, amount: p.amount, currency: p.currency, sample: p.sample, receipts: null })),
-  ...D.expenses.map((e) => ({ date: e.date, who: e.title, note: [e.vendor, e.category].filter(Boolean).join(" · "), sign: "−", value: e.value, amount: e.amount, currency: e.currency, sample: e.sample, receipts: e.receipts || [] })),
+  ...D.payments.map((p) => ({ date: p.date, who: p.name || "Anonymous", note: [p.message, p.sourceLabel].filter(Boolean).join(" · "), sign: "+", value: p.value, amount: p.amount, currency: p.currency, receipts: null })),
+  ...D.expenses.map((e) => ({ date: e.date, who: e.title, note: [e.vendor, e.category].filter(Boolean).join(" · "), sign: "−", value: e.value, amount: e.amount, currency: e.currency, receipts: e.receipts || [], receiptNote: e.receiptNote })),
 ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
 if (entries.length) {
   parts.push(heading("The ledger", `Latest money in and out.${siteUrl ? ` Search the full history and every receipt on the <a href="${attr(siteUrl)}#search">live ledger</a>.` : ""}`));
   const amt = (x) => `${x.sign}${x.value != null ? money(x.value) : money(x.amount, x.currency)}`;
-  const rc = (x) => (x.receipts == null ? "" : x.receipts.length ? x.receipts.map((r, i) => `[receipt${x.receipts.length > 1 ? ` ${i + 1}` : ""}](${r.url})`).join(" ") : "<sub>none yet</sub>");
-  parts.push(`\n| Date | | Entry | Amount | Receipt |\n|---|:-:|---|--:|:-:|\n${entries.slice(0, 12).map((x) => `| ${date(x.date)} | ${x.sign === "+" ? "in" : "out"} | **${md(x.who)}**${x.note ? ` <sub>${md(x.note)}</sub>` : ""}${x.sample ? " <sub>· <i>sample</i></sub>" : ""} | ${amt(x)} | ${rc(x)} |`).join("\n")}\n`);
+  const rc = (x) => (x.receipts == null ? "" : x.receipts.length ? x.receipts.map((r, i) => `[receipt${x.receipts.length > 1 ? ` ${i + 1}` : ""}](${r.url})`).join(" ") : `<sub>${md(x.receiptNote || "none yet")}</sub>`);
+  parts.push(`\n| Date | | Entry | Amount | Receipt |\n|---|:-:|---|--:|:-:|\n${entries.slice(0, 12).map((x) => `| ${date(x.date)} | ${x.sign === "+" ? "in" : "out"} | **${md(x.who)}**${x.note ? ` <sub>${md(x.note)}</sub>` : ""} | ${amt(x)} | ${rc(x)} |`).join("\n")}\n`);
   if (D.byCategory.length > 1) parts.push(`\n<sub>Spent by category: ${D.byCategory.slice(0, 5).map((c) => `<code>${xml(c.category)}</code> ${money(Math.round(c.value))}`).join(" · ")}</sub>\n`);
-  if (anySample) parts.push(`\n<sub><i>sample</i> rows are placeholders until real entries come in.</sub>\n`);
 }
 
 // ── What I'm working on

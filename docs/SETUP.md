@@ -69,7 +69,7 @@ Money that doesn't come through a platform goes in [`data/manual.json`](../data/
   "expenses":  [{ "date": "2026-11-03", "title": "SSD", "amount": 79, "vendor": "Amazon", "category": "hardware", "receipt": "https://…" }] }
 ```
 
-Use `"anonymous": true` to hide a name. Put a receipt link (image, PDF or any page) in `"receipt"`. Rows with `"sample": true` are placeholders and show a *sample* tag; delete them once real entries come in. Saving the file rebuilds the README.
+Use `"anonymous": true` to hide a name. `"receipt"` takes a link (image, PDF or any page), or a short note such as `"personal"` that shows in place of a link. Saving the file rebuilds the README.
 
 ## 6. Milestones
 

@@ -865,7 +865,7 @@ a.go:hover { color: var(--ink); }
 .rc-prev { left: 10px; } .rc-next { right: 10px; }
 .receipt-meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin: 16px 0; }
 
-/* ───────────── Empty states (no data yet; never sample data) ───────────── */
+/* ───────────── Empty states (no data yet) ───────────── */
 .blank {
   display: flex; align-items: center; gap: 12px; padding: 22px 20px; border: 1px dashed var(--line-strong);
   border-radius: var(--radius); color: var(--muted); font-size: 14px; background: color-mix(in srgb, var(--surface) 40%, transparent);
@@ -1078,7 +1078,6 @@ a.go:hover { color: var(--ink); }
 .receipt-link:hover { border-color: var(--ink); color: var(--ink); }
 .receipt-link .i { width: 12px; height: 12px; }
 .no-receipt { font-size: 12px; color: var(--faint); }
-.sample-tag { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--warn); border: 1px dashed color-mix(in srgb, var(--warn) 50%, transparent); border-radius: 5px; padding: 1px 5px; }
 .amt-in { color: var(--good); }
 .amt-out { color: var(--ink-2); }
 .row mark { background: var(--fill-soft); color: inherit; border-radius: 3px; padding: 0 1px; }

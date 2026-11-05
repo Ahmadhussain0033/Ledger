@@ -674,7 +674,6 @@
     f.append(s.slice(i)); return f;
   }
   // One quiet row: date · title (+ sub) · meta · value
-  const sampleTag = (x) => (x && x.sample ? el("span", { class: "sample-tag", title: "Sample entry, not a real transaction" }, "sample") : null);
   const row = ({ date, title, sub, meta, value, extra, onclick, cls = "" }) => el("li", { class: `row${onclick ? " clickable" : ""} ${cls}`, onclick, tabindex: onclick ? "0" : null,
     onkeydown: onclick ? (e) => { if (e.key === "Enter") onclick(e); } : null },
     el("span", { class: "r-date mono" }, date || ""),
@@ -691,7 +690,7 @@
       const pr = D.projects.find((x) => p.tags.includes(x.tag));
       return row({
         date: shortDate(p.date), title: p.name || "Anonymous", sub: p.message || null,
-        meta: [p.sourceLabel, pr && pr.title].filter(Boolean).join(" · "), extra: sampleTag(p),
+        meta: [p.sourceLabel, pr && pr.title].filter(Boolean).join(" · "),
         value: p.value != null ? `${p.currency !== BASE ? "≈ " : ""}${money(p.value)}` : money(p.amount, p.currency),
         onclick: safeUrl(p.url) ? () => window.open(safeUrl(p.url), "_blank", "noopener") : null,
       });
@@ -779,7 +778,7 @@
     $("#spendList").replaceChildren(...D.expenses.slice(0, 8).map((e) => row({
       date: shortDate(e.date), title: e.title, sub: [e.vendor, e.project && e.project.title].filter(Boolean).join(" · ") || null,
       meta: e.category || "",
-      extra: [sampleTag(e), receiptLink(e)],
+      extra: receiptLink(e) || (e.receiptNote ? el("span", { class: "no-receipt" }, e.receiptNote) : null),
       value: e.currency !== BASE && e.value != null ? `≈ ${money(e.value)}` : money(e.amount, e.currency),
       onclick: (e.receipts || []).length ? () => openReceipt(e, 0) : safeUrl(e.url) ? () => window.open(safeUrl(e.url), "_blank", "noopener") : null,
     })));
@@ -858,7 +857,7 @@
       date: x.date ? shortDate(x.date) : "now",
       title: highlight(x.title, q), sub: x.sub ? highlight(x.sub, q) : null,
       meta: x.meta || "",
-      extra: [sampleTag(x.item), x.receipt ? (receiptLink(x.receipt) || el("span", { class: "no-receipt" }, "no receipt")) : null],
+      extra: x.receipt ? (receiptLink(x.receipt) || el("span", { class: "no-receipt" }, x.receipt.receiptNote || "no receipt")) : null,
       value: x.valueText ? el("span", { class: x.sign === "in" ? "amt-in" : x.sign === "out" ? "amt-out" : "" }, `${x.sign === "in" ? "+" : x.sign === "out" ? "−" : ""}${x.valueText}`) : "",
       onclick: x.receipt && (x.receipt.receipts || []).length ? () => openReceipt(x.receipt, 0)
         : x.donor ? () => { $("#ledgerSearch").value = x.donor; ledger.type = "donation"; renderSearch(current); }
@@ -907,7 +906,7 @@
   }
   const svgPlay = () => { const s = svgEl("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }); s.innerHTML = '<path d="M8 5.5v13l11-6.5z" fill="currentColor"/>'; return s; };
   const navLink = (href) => $(`#nav > a[href="${href}"]`) || document.createElement("a");
-  // Every section always renders. With no data it shows a plain empty card: no sample data, ever.
+  // Every section always renders. With no data it shows a plain empty card.
   const showSection = (id, hasData, onEmpty) => {
     const sec = $(id); if (sec) sec.hidden = false; navLink(id).hidden = false;
     if (!hasData && onEmpty) onEmpty();

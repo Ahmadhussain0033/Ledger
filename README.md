@@ -20,21 +20,18 @@
 
 | Date | | Entry | Amount | Receipt |
 |---|:-:|---|--:|:-:|
-| Nov 2, 2026 | in | **Ahmad** <sub>Workstation fund · Direct</sub> <sub>· <i>sample</i></sub> | +$180 |  |
-| Oct 30, 2026 | out | **USB microphone** <sub>Amazon · hardware</sub> <sub>· <i>sample</i></sub> | −$89 | <sub>none yet</sub> |
-| Oct 27, 2026 | in | **Anonymous** <sub>Direct</sub> <sub>· <i>sample</i></sub> | +$30 |  |
-| Oct 12, 2026 | out | **VPS, 3 months** <sub>Hetzner · infra</sub> <sub>· <i>sample</i></sub> | −$36 | <sub>none yet</sub> |
-| Oct 9, 2026 | in | **Anon** <sub>Keep going · Direct</sub> <sub>· <i>sample</i></sub> | +$75 |  |
-| Sep 25, 2026 | out | **Domain renewal** <sub>Namecheap · infra</sub> <sub>· <i>sample</i></sub> | −$14 | <sub>none yet</sub> |
-| Sep 21, 2026 | in | **Ahmad** <sub>Hosting for the year · Direct</sub> <sub>· <i>sample</i></sub> | +$250 |  |
-| Sep 3, 2026 | in | **Anonymous** <sub>Good luck with it · Direct</sub> <sub>· <i>sample</i></sub> | +$45 |  |
-| Aug 14, 2026 | in | **Ahmad** <sub>Getting things started · Direct</sub> <sub>· <i>sample</i></sub> | +$120 |  |
+| Nov 2, 2026 | in | **Ahmad** <sub>Workstation fund · Direct</sub> | +$180 |  |
+| Oct 30, 2026 | out | **USB microphone** <sub>Amazon · hardware</sub> | −$89 | <sub>personal</sub> |
+| Oct 27, 2026 | in | **Anonymous** <sub>Direct</sub> | +$30 |  |
+| Oct 12, 2026 | out | **VPS, 3 months** <sub>Hetzner · infra</sub> | −$36 | <sub>personal</sub> |
+| Oct 9, 2026 | in | **Anon** <sub>Keep going · Direct</sub> | +$75 |  |
+| Sep 25, 2026 | out | **Domain renewal** <sub>Namecheap · infra</sub> | −$14 | <sub>personal</sub> |
+| Sep 21, 2026 | in | **Ahmad** <sub>Hosting for the year · Direct</sub> | +$250 |  |
+| Sep 3, 2026 | in | **Anonymous** <sub>Good luck with it · Direct</sub> | +$45 |  |
+| Aug 14, 2026 | in | **Ahmad** <sub>Getting things started · Direct</sub> | +$120 |  |
 
 
 <sub>Spent by category: <code>hardware</code> $89 · <code>infra</code> $50</sub>
-
-
-<sub><i>sample</i> rows are placeholders until real entries come in.</sub>
 
 
 ## `02` · Milestones
