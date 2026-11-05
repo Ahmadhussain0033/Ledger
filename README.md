@@ -10,7 +10,49 @@
 </div>
 
 
-## `01` · On GitHub
+## `01` · What I'm working on
+
+
+<sub>Nothing here yet.</sub>
+
+
+## `02` · Funding drives & goals
+
+
+<sub>Nothing here yet.</sub>
+
+
+## `03` · Milestones
+
+
+<sub>Nothing here yet.</sub>
+
+
+## `04` · Ways to support
+
+
+<sub>Nothing here yet.</sub>
+
+
+## `05` · People who've helped
+
+
+<sub>Nothing here yet.</sub>
+
+
+## `06` · Where the money goes
+
+
+<sub>Nothing here yet.</sub>
+
+
+## `07` · Latest videos
+
+
+<sub>Nothing here yet.</sub>
+
+
+## `08` · On GitHub
 
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/readme/contributions-dark.svg"><img alt="47 contributions in the last year" src="docs/readme/contributions-light.svg" width="100%"></picture>
@@ -28,7 +70,7 @@
 </table>
 
 
-## `02` · Get in touch
+## `09` · Get in touch
 
 
 <p>

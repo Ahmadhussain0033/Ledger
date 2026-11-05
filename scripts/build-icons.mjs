@@ -23,6 +23,7 @@ const UI = {
   coins: "hand-coins", trend: "trending-up", zap: "zap", layers: "layers", activity: "activity",
   type: "type", palette: "palette", eye: "eye", radio: "radio", video: "clapperboard", git: "git-commit-horizontal",
   milestone: "milestone", wins: "medal", spending: "chart-pie", donors: "hand-heart", sources: "satellite-dish",
+  menu: "menu", down: "chevron-down", home: "house", grid: "layout-grid", close: "x",
 };
 // slug used in the app → Simple Icons slug
 const BRANDS = {

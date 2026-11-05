@@ -124,8 +124,6 @@ UI icons come from [Lucide](https://lucide.dev) (1,500+ icons), and brand logos 
 
 Open the site with **`?setup`** at the end of the URL (or run it locally). A checklist shows what's connected and what isn't. Visitors never see it.
 
-Add **`?preview`** to see every section filled in. Sections you haven't connected use public example accounts (Babel on Open Collective, Liberapay, a public Bitcoin/Ethereum address), and GitHub-based ones show their empty layout. A banner makes this clear, and nothing changes for normal visitors.
-
 ```bash
 python3 -m http.server 8000   # then open http://localhost:8000
 ```

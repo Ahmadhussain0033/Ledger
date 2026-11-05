@@ -175,6 +175,7 @@ if (stats.length) {
 }
 parts.push(`</div>\n`);
 
+const EMPTY = "\n<sub>Nothing here yet.</sub>\n";
 // helper for section headings in the site's style
 let secN = 0;
 const heading = (title, sub) => { secN++; return `\n## \`${String(secN).padStart(2, "0")}\` · ${title}\n${sub ? `\n<sub>${sub}</sub>\n` : ""}`; };
@@ -204,7 +205,7 @@ if (projects.length) {
   const rows = [];
   for (let i = 0; i < cells.length; i += 2) rows.push(`<tr>\n${cells[i]}\n${cells[i + 1] || "<td></td>"}\n</tr>`);
   parts.push(`\n<table>\n${rows.join("\n")}\n</table>\n`);
-}
+} else parts.push(heading("What I'm working on"), EMPTY);
 
 // ── Drives & goals
 const drives = D.drives.filter((d) => d.phase !== "ended");
@@ -231,6 +232,8 @@ if (drives.length || D.goals.length) {
   });
 }
 
+else parts.push(heading("Funding drives & goals"), EMPTY);
+
 // ── Milestones
 const WIN = {
   first: (m) => [`First donation`, `${m.name || "An anonymous supporter"} via ${m.source}`],
@@ -247,8 +250,10 @@ if (D.milestones.length) {
   if (D.next.raised) { const n = D.next.raised; nexts.push(`**Next:** ${money(n.threshold)} raised  \`${pbar((n.current - n.prev) / (n.threshold - n.prev))}\` ${money(Math.round(n.current))}`); }
   if (D.next.donors) { const n = D.next.donors; nexts.push(`**Next:** ${int(n.threshold)} donors  \`${pbar((n.current - n.prev) / (n.threshold - n.prev))}\` ${int(n.current)}`); }
   if (nexts.length) parts.push(`\n${nexts.join("<br>\n")}\n`);
-  parts.push(`\n|   | Milestone | Detail | Date |\n|---|---|---|---|\n${D.milestones.slice(0, 12).map((m) => { const [t, d] = (WIN[m.kind] || (() => [m.kind, ""]))(m); const fresh = !m.date || Date.now() - new Date(m.date).getTime() < 30 * 864e5; return `| ${fresh ? "🟢" : "◦"} | **${md(t)}** | ${md(d)} | ${m.date ? date(m.date) : "now"} |`; }).join("\n")}\n`);
+  parts.push(`\n| Date | Milestone |\n|---|---|\n${D.milestones.slice(0, 8).map((m) => { const [t, d] = (WIN[m.kind] || (() => [m.kind, ""]))(m); return `| ${m.date ? date(m.date) : "now"} | **${md(t)}** <sub>${md(d)}</sub> |`; }).join("\n")}\n`);
 }
+
+else parts.push(heading("Milestones"), EMPTY);
 
 // ── Ways to support
 const supportLinks = {
@@ -276,6 +281,8 @@ if (btns.length || wallets.length) {
   if (btns.length) parts.push(`\n<p>\n${btns.join("\n")}\n</p>\n`);
   if (wallets.length) parts.push(`\n${wallets.join("\n\n")}\n`);
 }
+
+else parts.push(heading("Ways to support"), EMPTY);
 
 // ── Supporters
 if (D.payments.length || D.leaders.length) {
@@ -312,6 +319,8 @@ if (D.payments.length || D.leaders.length) {
   }
 }
 
+else parts.push(heading("People who've helped"), EMPTY);
+
 // ── Spending
 if (D.expenses.length) {
   parts.push(heading("Where the money goes", "Every expense is a GitHub issue or an Open Collective expense, with the receipt attached."));
@@ -324,6 +333,8 @@ if (D.expenses.length) {
   if (D.expenses.length > 12) parts.push(`\n<sub>${D.expenses.length - 12} more on the ${siteUrl ? `<a href="${attr(siteUrl)}#spending">live site</a>` : "live site"}.</sub>\n`);
 }
 
+else parts.push(heading("Where the money goes"), EMPTY);
+
 // ── Videos
 const vids = (snap.youtube && snap.youtube.videos) || [];
 if (vids.length) {
@@ -333,6 +344,8 @@ if (vids.length) {
   for (let i = 0; i < v6.length; i += 3) rows.push(`<tr>\n${v6.slice(i, i + 3).map((v) => `<td width="33%" valign="top"><a href="https://www.youtube.com/watch?v=${attr(v.id)}"><img alt="${attr(v.title)}" src="https://i.ytimg.com/vi/${attr(v.id)}/hqdefault.jpg" width="100%"></a><br><sub><b>${xml(v.title)}</b><br>${date(v.published)}${v.views != null ? ` · ${int(v.views)} views` : ""}</sub></td>`).join("\n")}\n</tr>`);
   parts.push(`\n<table>\n${rows.join("\n")}\n</table>\n`);
 }
+
+else parts.push(heading("Latest videos"), EMPTY);
 
 // ── GitHub
 const repos = g.repos || [];
@@ -371,6 +384,8 @@ if (g.contributions || repos.length) {
   }
 }
 
+else parts.push(heading("On GitHub"), EMPTY);
+
 // ── Contact
 const contact = [];
 const email = C.email || (P && P.email);
@@ -385,6 +400,8 @@ if (contact.length) {
   parts.push(heading("Get in touch"));
   parts.push(`\n<p>\n${contact.join("\n")}\n</p>\n`);
 }
+
+else parts.push(heading("Get in touch"), EMPTY);
 
 // ── Footer
 const brand = (P && P.company ? P.company.replace(/^@/, "") : P && P.name) || "";

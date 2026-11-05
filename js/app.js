@@ -5,14 +5,9 @@
   "use strict";
 
   const C = window.LEDGER_CONFIG || {};
-  // ?preview fills sections you haven't connected with PUBLIC example accounts so you can see the layout.
-  // It never runs without the URL flag, and a banner says so.
-  const PREVIEW = new URLSearchParams(location.search).has("preview");
-  const EXAMPLES = { opencollective: "babel", liberapay: "Liberapay", bitcoin: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", ethereum: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" };
   const SRC = { ...(C.sources || {}) };
-  if (PREVIEW) for (const [k, v] of Object.entries(EXAMPLES)) if (!SRC[k]) SRC[k] = v;
-  const DISCORD_ID = C.discordServerId || (PREVIEW ? "81384788765712384" : "");
-  const TZ = C.timezone || (PREVIEW ? Intl.DateTimeFormat().resolvedOptions().timeZone : "");
+  const DISCORD_ID = C.discordServerId || "";
+  const TZ = C.timezone || "";
   const L = window.LedgerSources;
   const LOCALE = C.locale || "en-US";
   const BASE = String(C.currency || "USD").toUpperCase();
@@ -220,23 +215,13 @@
     if (state.refreshing) { t.textContent = "Refreshing…"; return; }
     const errs = Object.keys(state.liveErr).length;
     pill.classList.toggle("warn", errs > 0);
-    t.textContent = `Live · ${state.lastRefresh ? ago(state.lastRefresh.toISOString()) : "–"}`;
+    t.textContent = "Live";
+    pill.title = `Updated ${state.lastRefresh ? ago(state.lastRefresh.toISOString()) : "–"} · click to refresh`;
   }
 
   /* ───────────── owner setup checklist ───────────── */
   function renderSetup(D) {
     const box = $("#setup");
-    if (PREVIEW) {
-      box.hidden = false;
-      const used = Object.keys(EXAMPLES).filter((k) => !(C.sources || {})[k]).map((k) => META[k].label);
-      box.replaceChildren(el("article", { class: "card setup-card preview-card" },
-        el("div", { class: "card-head" },
-          el("div", {}, el("div", { class: "tile-label" }, "Preview mode"),
-            el("div", { class: "tile-strong" }, "Showing how every section looks")),
-          el("a", { class: "btn btn-ghost btn-sm", href: location.pathname }, "Exit preview")),
-        el("p", { class: "fine" }, `Sections you haven't connected are filled from public example accounts (${used.join(", ")}${!C.discordServerId ? ", the Discord API server" : ""}). GitHub-based sections without data show their empty layout. Your real page, without ?preview, never shows any of this.`)));
-      return;
-    }
     if (!OWNER) return;
     const items = [
       [!!D.gh.profile, "GitHub profile loads", D.gh.profile ? `@${D.gh.profile.login}` : D.gh.error || "Set github in ledger.config.js"],
@@ -260,7 +245,7 @@
         el("button", { class: "icon-btn", "aria-label": "Hide setup", onclick: () => { box.hidden = true; } }, icon("x"))),
       el("ul", { class: "setup-list" }, items.map(([ok, label, detail]) =>
         el("li", { class: ok ? "ok" : "" }, el("span", { class: "check" }, icon(ok ? "check" : "dot")), el("b", {}, label), el("span", { class: "muted" }, detail)))),
-      el("p", { class: "fine" }, "Shown on localhost, file:// or with ?setup in the URL. Visitors never see this. ", el("a", { href: "?preview", class: "link-arrow" }, "Preview every section →")),
+      el("p", { class: "fine" }, "Shown on localhost, file:// or with ?setup in the URL. Visitors never see this."),
     ));
   }
 
@@ -289,12 +274,13 @@
       p ? el("p", { class: "profile-handle mono" }, `@${p.login}`, p.location ? ` · ${p.location}` : "", p.company ? ` · ${p.company}` : "") : skel("40%"),
       p ? (p.bio ? el("p", { class: "profile-tagline" }, p.bio) : null) : el("div", {}, skel("90%"), el("br"), skel("70%")),
       el("div", { class: "profile-cta" },
-        CONFIGURED.length ? el("a", { href: "#donate", class: "btn btn-primary" }, "Support my work", icon("arrow")) : null,
+        el("a", { href: "#donate", class: "btn btn-primary" }, "Support my work", icon("arrow")),
         el("a", { href: "#contact", class: "btn btn-ghost" }, "Get in touch")),
     ));
 
     // Raised
-    if (D.parts.length) {
+    if (!D.parts.length) tiles.push(tile("tile-raised", go("#supporters", "Total raised"), el("div", { class: "tile-label" }, "Total raised"), el("div", { class: "big-number mono dim" }, "—"), el("div", { class: "tile-sub" }, "No sources connected yet")));
+    else {
       const big = el("div", { class: "big-number mono" });
       const spark = svgEl("svg", { class: "sparkline", viewBox: "0 0 200 48", preserveAspectRatio: "none", "aria-hidden": "true" });
       const months = monthSeries(D.payments, 12);
@@ -311,7 +297,8 @@
     }
 
     // Recurring
-    if (D.recurringParts.length) {
+    if (!D.recurringParts.length) tiles.push(tile("tile-recurring", go("#donate", "Recurring support"), el("div", { class: "tile-label" }, "Recurring"), el("div", { class: "big-number mono dim" }, "—"), el("div", { class: "tile-sub" }, "No recurring support yet")));
+    else {
       const big = el("div", { class: "big-number mono" });
       tiles.push(tile("tile-recurring", go("#donate", "Recurring support: see platforms"), el("div", { class: "tile-label" }, "Recurring"), el("div", { class: "row baseline" }, big, el("span", { class: "per" }, "/mo")),
         el("div", { class: "tile-sub" }, D.recurringParts.map((x) => `${x.label} ${money(Math.round(x.value))}`).join(" · "))));
@@ -319,7 +306,8 @@
     }
 
     // Supporters
-    if (D.supporters > 0 || D.leaders.length) {
+    if (!(D.supporters > 0 || D.leaders.length)) tiles.push(tile("tile-supporters", go("#supporters", "Supporters"), el("div", { class: "tile-label" }, "Supporters"), el("div", { class: "big-number mono dim" }, "—"), el("div", { class: "tile-sub" }, "No supporters yet")));
+    else {
       const big = el("div", { class: "big-number mono" });
       const stack = el("div", { class: "avatar-stack" }, D.leaders.slice(0, 5).map((s, i) => el("span", { title: s.name, style: `--n:${i}` }, initials(s.name))));
       if (D.leaders.length > 5) stack.append(el("span", { style: "--n:5" }, `+${D.leaders.length - 5}`));
@@ -331,7 +319,14 @@
     // Current drive / goal
     const drive = D.drives.find((d) => d.phase === "live" && d.goal) || D.drives.find((d) => d.phase === "upcoming" && d.goal);
     const goal = !drive && D.goals[0];
-    if (drive || goal) {
+    if (!drive && !goal) {
+      const svg = svgEl("svg", { class: "ring", viewBox: "0 0 120 120", "aria-hidden": "true" });
+      svg.append(svgEl("circle", { class: "ring-track", cx: 60, cy: 60, r: 52 }));
+      tiles.push(tile("tile-drive span-2", go("#drives", "Funding drives"),
+        el("div", { class: "tile-label" }, "Current drive"),
+        el("div", { class: "ring-wrap" }, svg, el("div", { class: "ring-center" }, el("span", { class: "mono dim" }, "—"))),
+        el("div", { class: "tile-drive-meta" }, el("div", { class: "tile-drive-title" }, "No active drive"), el("div", { class: "tile-sub" }, "Nothing running right now"))));
+    } else {
       const pct = drive ? Math.min(1, drive.raised / drive.goal) : Math.min(1, goal.current / goal.target);
       const C2 = 2 * Math.PI * 52;
       const ring = svgEl("circle", { class: "ring-fill", cx: 60, cy: 60, r: 52 });
@@ -356,6 +351,7 @@
     // Clock
     if (TZ) tiles.push(tile("tile-clock", go("clock", "Switch 12/24-hour time"), el("div", { class: "tile-label" }, "My local time"),
       el("div", { class: "clock mono", id: "clock" }, "--:--"), el("div", { class: "tile-sub", id: "clockSub" })));
+    else tiles.push(tile("tile-clock", el("div", { class: "tile-label" }, "My local time"), el("div", { class: "clock mono dim" }, "—"), el("div", { class: "tile-sub" }, "Timezone not set yet")));
 
     // GitHub
     if (p) {
@@ -368,6 +364,9 @@
     }
 
     // Discord
+    if (!DISCORD_ID) tiles.push(tile("tile-discord", el("div", { class: "tile-label" }, "Community"),
+      el("div", { class: "discord-row" }, el("span", { class: "glyph" }, icon("brand:discord")),
+        el("div", {}, el("div", { class: "tile-strong" }, "Discord"), el("div", { class: "tile-sub" }, "Not connected yet")))));
     if (DISCORD_ID) {
       const d = state.discord, invite = safeUrl(C.discordInvite) || safeUrl(d && d.invite) || safeUrl(state.snap && state.snap.discord && state.snap.discord.invite);
       tiles.push(tile("tile-discord", go(invite ? "discord" : "#contact", "Discord community"),
@@ -459,7 +458,7 @@
     seg.hidden = present.length < 2;
     seg.replaceChildren(...["all", ...present].map((f) => el("button", { role: "tab", class: f === projectFilter ? "on" : "", "data-filter": f }, f === "all" ? "All" : STATUS[f] || f)));
 
-    if (!showSection("#projects", list.length > 0, ghost("#projectGrid", 3, `Projects appear here: open an issue in ${C.repo} labelled "${C.projectLabel || "funding"}" with a "goal: $…" line.`))) return;
+    if (!showSection("#projects", list.length > 0, blank("#projectGrid", "folder", "No projects yet"))) return;
     grid.replaceChildren(...list.map((p) => {
       const pct = p.goal ? Math.min(100, (p.raised / p.goal) * 100) : null;
       const fill = el("i", { style: `width:${state.prev["pj" + p.number] ?? 0}%` });
@@ -512,7 +511,7 @@
       el("div", { class: "pm-actions" },
         p.status !== "funded" && CONFIGURED.length ? el("a", { class: "btn btn-primary", href: "#donate", onclick: () => $("#projectModal").close() }, "Support this", icon("arrow")) : null,
         el("a", { class: "btn btn-ghost", href: safeUrl(p.url), target: "_blank", rel: "noopener" }, "Discuss on GitHub", icon("arrow")),
-        p.payments.length ? el("button", { class: "btn btn-ghost", onclick: () => { $("#projectModal").close(); tableState.project = p.tag; $("#tableProject").value = p.tag; renderTable(current, true); $("#supporters").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }); } }, "See in ledger") : null),
+        p.payments.length ? el("button", { class: "btn btn-ghost", onclick: () => { $("#projectModal").close(); openPalette("donation", `#${p.tag}`); } }, "See donations") : null),
     ));
     $("#projectModal").showModal();
     if (pct != null && pct >= 100) setTimeout(() => { const r = $("#projectModal .modal-inner").getBoundingClientRect(); celebrate(r.left + r.width / 2, r.top + 90, 34); }, 250);
@@ -524,7 +523,7 @@
     const list = $("#driveList");
     const order = { live: 0, upcoming: 1, ended: 2 };
     const drives = D.drives.slice().sort((a, b) => order[a.phase] - order[b.phase]);
-    if (!showSection("#drives", drives.some((d) => d.phase !== "ended") || D.goals.length > 0, ghost("#driveList", 1, "Drives appear here: create a milestone with a due date and a \"goal: $…\" line.", "one"))) return;
+    if (!showSection("#drives", drives.some((d) => d.phase !== "ended") || D.goals.length > 0, blank("#driveList", "target", "No funding drives yet"))) return;
     const cards = drives.map((d) => {
       const pct = d.goal ? Math.min(100, (d.raised / d.goal) * 100) : null;
       const fill = el("i", { style: `width:${state.prev["dr" + d.number] ?? 0}%` });
@@ -591,7 +590,7 @@
 
   let chartRange = 12;
   function renderChart(D) {
-    if (!showSection("#supporters", D.srcs.some((s) => s.data))) return;
+    showSection("#supporters", true);
     const host = $("#chart");
     const data = monthSeries(D.payments, chartRange);
     const W = host.clientWidth || 600, H = host.clientHeight || 220;
@@ -653,8 +652,9 @@
   /* ───────────── leaderboard ───────────── */
   function renderBoard(D) {
     const ol = $("#board");
-    const top = D.leaders.slice(0, 6);
-    if (!top.length) { ol.replaceChildren(el("li", { class: "board-empty tile-sub" }, CONFIGURED.length ? "No named supporters yet. Anonymous gifts still count toward the totals." : "No donation sources connected yet.")); return; }
+    const top = D.leaders.slice(0, 5);
+    $('[data-search="donor"]').hidden = D.leaders.length <= 5;
+    if (!top.length) { ol.replaceChildren(el("li", { class: "board-empty tile-sub" }, "No supporters yet")); return; }
     const max = top[0].total || 1;
     ol.replaceChildren(...top.map((s) => {
       const fill = el("i");
@@ -666,9 +666,7 @@
     }));
   }
 
-  /* ───────────── ledger table ───────────── */
-  const PAGE = 12;
-  const tableState = { shown: PAGE, project: "" };
+  /* ───────────── shared helpers for row lists & search ───────────── */
   function highlight(text, q) {
     const s = String(text || "");
     if (!q) return document.createTextNode(s);
@@ -676,51 +674,28 @@
     while ((j = lower.indexOf(q, i)) !== -1) { f.append(s.slice(i, j), el("mark", {}, s.slice(j, j + q.length))); i = j + q.length; }
     f.append(s.slice(i)); return f;
   }
-  function syncSelect(sel, options) {
-    const v = sel.value;
-    sel.replaceChildren(...options.map(([val, label]) => el("option", { value: val }, label)));
-    sel.value = options.some(([val]) => val === v) ? v : "";
-    sel.closest(".select-wrap").hidden = options.length <= 2;
-  }
-  function renderTable(D, reset) {
-    if (reset) tableState.shown = PAGE;
-    const bySource = [...new Set(D.payments.map((p) => p.source))];
-    syncSelect($("#tableSource"), [["", "All sources"], ...bySource.map((id) => [id, META[id].label])]);
-    syncSelect($("#tableProject"), [["", "All projects"], ...D.projects.filter((p) => p.payments.length).map((p) => [p.tag, p.title])]);
-    if (tableState.project) $("#tableProject").value = tableState.project;
-    const q = $("#tableSearch").value.trim().toLowerCase();
-    const sf = $("#tableSource").value, pf = $("#tableProject").value;
-    const projOf = (p) => D.projects.find((x) => p.tags.includes(x.tag));
-    const [key, dir] = $("#tableSort").value.split("-");
-    const rows = D.payments.filter((p) => {
-      if (sf && p.source !== sf) return false;
-      if (pf && !p.tags.includes(pf)) return false;
-      if (!q) return true;
-      const pr = projOf(p);
-      return [p.name || "anonymous", p.message, p.sourceLabel, pr && pr.title].some((v) => String(v || "").toLowerCase().includes(q));
-    });
-    const cmp = { date: (a, b) => String(a.date).localeCompare(String(b.date)), amount: (a, b) => (a.value ?? 0) - (b.value ?? 0), name: (a, b) => (a.name || "~").localeCompare(b.name || "~") }[key];
-    rows.sort((a, b) => (dir === "desc" ? -1 : 1) * cmp(a, b));
-    const body = $("#tableBody");
-    if (!rows.length) {
-      body.replaceChildren(el("tr", { class: "no-results" }, el("td", { colspan: "5" }, D.payments.length ? "Nothing matches that search." : CONFIGURED.length ? "No itemised payments from the connected sources yet." : "No donation sources connected yet.")));
-    } else {
-      body.replaceChildren(...rows.slice(0, tableState.shown).map((p) => {
-        const pr = projOf(p);
-        const converted = p.currency !== BASE;
-        return el("tr", {},
-          el("td", { class: "date" }, fmtDate(p.date)),
-          el("td", {}, p.name ? highlight(p.name, q) : el("span", { class: "anon" }, highlight("Anonymous", q)),
-            p.message ? el("span", { class: "note" }, highlight(p.message, q)) : null),
-          el("td", { class: "for" }, pr ? highlight(pr.title, q) : el("span", { class: "muted" }, "General")),
-          el("td", { class: "via" }, safeUrl(p.url) ? el("a", { href: safeUrl(p.url), target: "_blank", rel: "noopener", class: "src-link" }, highlight(p.sourceLabel, q), icon("arrow")) : highlight(p.sourceLabel, q)),
-          el("td", { class: "num" }, p.value != null ? `${converted ? "≈ " : ""}${money(p.value)}` : money(p.amount, p.currency),
-            converted && p.value != null ? el("span", { class: "orig" }, money(p.amount, p.currency)) : null));
-      }));
-    }
-    const sum = rows.reduce((s, p) => s + (p.value || 0), 0);
-    $("#tableCount").textContent = rows.length ? `${Math.min(tableState.shown, rows.length)} of ${rows.length} · ${money(sum)}` : "";
-    $("#tableMore").hidden = rows.length <= tableState.shown;
+  // One quiet row: date · title (+ sub) · meta · value
+  const row = ({ date, title, sub, meta, value, extra, onclick, cls = "" }) => el("li", { class: `row${onclick ? " clickable" : ""} ${cls}`, onclick, tabindex: onclick ? "0" : null,
+    onkeydown: onclick ? (e) => { if (e.key === "Enter") onclick(e); } : null },
+    el("span", { class: "r-date mono" }, date || ""),
+    el("span", { class: "r-main" }, el("b", {}, title), sub ? el("span", { class: "r-sub" }, sub) : null),
+    el("span", { class: "r-meta" }, meta || "", extra || null),
+    el("span", { class: "r-val mono" }, value || ""));
+  const shortDate = (iso) => (iso ? new Intl.DateTimeFormat(LOCALE, { month: "short", day: "numeric" }).format(new Date(iso)) : "");
+
+  function renderRecent(D) {
+    const list = $("#recentList");
+    $('#supporters [data-search="donation"]').hidden = D.payments.length <= 8;
+    if (!D.payments.length) { blank("#recentList", "coins", "No donations yet")(); return; }
+    list.replaceChildren(...D.payments.slice(0, 8).map((p) => {
+      const pr = D.projects.find((x) => p.tags.includes(x.tag));
+      return row({
+        date: shortDate(p.date), title: p.name || "Anonymous", sub: p.message || null,
+        meta: [p.sourceLabel, pr && pr.title].filter(Boolean).join(" · "),
+        value: p.value != null ? `${p.currency !== BASE ? "≈ " : ""}${money(p.value)}` : money(p.amount, p.currency),
+        onclick: safeUrl(p.url) ? () => window.open(safeUrl(p.url), "_blank", "noopener") : null,
+      });
+    }));
   }
 
   /* ───────────── celebration (particles fly out and fade; no bounce) ───────────── */
@@ -756,36 +731,24 @@
   let winsObserved = false;
 
   function renderWins(D) {
-    if (!showSection("#wins", D.milestones.length > 0)) return;
-    // Next milestones
-    const nexts = [];
-    if (D.next.raised) nexts.push(["Next: " + money(D.next.raised.threshold) + " raised", D.next.raised, (v) => money(Math.round(v))]);
-    if (D.next.donors) nexts.push(["Next: " + intFmt(D.next.donors.threshold) + " donors", D.next.donors, (v) => intFmt(v)]);
-    $("#winNext").replaceChildren(...nexts.map(([label, n, f]) => {
+    if (!showSection("#wins", D.milestones.length > 0, blank("#winList", "wins", "No milestones yet"))) { $("#winNext").replaceChildren(); $('[data-search="milestone"]').hidden = true; return; }
+    const n = D.next.raised;
+    if (n) {
       const pct = Math.max(0, Math.min(1, (n.current - n.prev) / (n.threshold - n.prev)));
       const fill = el("i");
       requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = `${pct * 100}%`; }));
-      return el("article", { class: `card win-next${entering("wn" + label)}` },
-        el("div", { class: "tile-label" }, label),
-        el("div", { class: "progress-nums" }, el("strong", { class: "mono" }, f(n.current)), el("span", { class: "mono muted" }, `${Math.round(pct * 100)}%`)),
-        el("div", { class: "bar thick" }, fill));
-    }));
-    const q = $("#winSearch").value.trim().toLowerCase();
-    const list = D.milestones.filter((m) => !q || `${winTitle(m)} ${winDetail(m)}`.toLowerCase().includes(q));
-    $("#winList").replaceChildren(...(list.length ? list.map((m) => el("li", { class: `win${isNew(m) ? " is-new" : ""}`, "data-win": m.id },
-      el("span", { class: "win-dot" }, icon(WIN_ICON[m.kind] || "spark")),
-      el("article", { class: "card win-card clickable", tabindex: "0", role: "button", "aria-label": winTitle(m),
-        onclick: (e) => { celebrate(e.clientX || e.target.getBoundingClientRect().left + 40, e.clientY || e.target.getBoundingClientRect().top + 20); },
-        onkeydown: (e) => { if (e.key === "Enter") { const r = e.currentTarget.getBoundingClientRect(); celebrate(r.left + 40, r.top + r.height / 2); } } },
-        el("div", { class: "win-top" },
-          el("span", { class: "win-date mono" }, m.date ? fmtDate(m.date) : "Now"),
-          isNew(m) ? el("span", { class: "badge", "data-s": "funded" }, "New") : null),
-        el("h3", {}, winTitle(m)),
-        el("p", { class: "tile-sub" }, winDetail(m)),
-        safeUrl(m.url) ? el("a", { class: "link-arrow tile-sub", href: safeUrl(m.url), target: "_blank", rel: "noopener", onclick: (e) => e.stopPropagation() }, "Open ↗") : null)))
-      : [el("li", { class: "tile-sub win-empty" }, "No milestones match that search.")]));
+      $("#winNext").replaceChildren(
+        el("div", { class: "next-line" }, el("span", { class: "tile-label" }, `Next · ${money(n.threshold)} raised`), el("span", { class: "mono muted" }, `${money(Math.round(n.current))} · ${Math.round(pct * 100)}%`)),
+        el("div", { class: "bar slim" }, fill));
+    } else $("#winNext").replaceChildren();
+    $("#winList").replaceChildren(...D.milestones.slice(0, 6).map((m) => row({
+      date: m.date ? shortDate(m.date) : "now", title: winTitle(m), meta: winDetail(m),
+      extra: isNew(m) ? el("span", { class: "new-dot", title: "New" }) : null,
+      cls: isNew(m) ? "is-new" : "", onclick: (e) => { const r = e.currentTarget.getBoundingClientRect(); celebrate(e.clientX || r.left + 60, e.clientY || r.top + r.height / 2); },
+    })));
+    $('[data-search="milestone"]').hidden = D.milestones.length <= 6;
 
-    // Celebrate a recent, unseen milestone once, when the section first comes into view.
+    // A recent, unseen milestone celebrates once when the section comes into view.
     if (!winsObserved && "IntersectionObserver" in window) {
       winsObserved = true;
       const io = new IntersectionObserver((es) => {
@@ -793,8 +756,8 @@
         io.disconnect();
         const fresh = current.milestones.find((m) => isNew(m) && !seenWins.has(m.id));
         if (!fresh) return;
-        const card = $(`[data-win="${fresh.id}"] .win-card`);
-        if (card) { const r = card.getBoundingClientRect(); setTimeout(() => celebrate(r.left + r.width / 2, r.top + r.height / 2, 34), 300); }
+        const first = $("#winList .row");
+        if (first) { const r = first.getBoundingClientRect(); setTimeout(() => celebrate(r.left + 120, r.top + r.height / 2, 30), 300); }
         current.milestones.filter(isNew).forEach((m) => seenWins.add(m.id));
         try { localStorage.setItem("ledger-seen-wins", JSON.stringify([...seenWins].slice(-200))); } catch {}
       }, { threshold: 0.4 });
@@ -802,74 +765,25 @@
     }
   }
 
-  /* ───────────── Donor directory ───────────── */
-  let donorShown = 24;
-  function renderDonors(D) {
-    const box = $("#donorsCard");
-    const anon = D.payments.filter((p) => !p.name);
-    box.hidden = !(D.leaders.length || anon.length);
-    if (box.hidden) return;
-    const q = $("#donorSearch").value.trim().toLowerCase();
-    const sort = $("#donorSort").value;
-    let list = D.leaders.filter((d) => !q || `${d.name} ${d.sources.join(" ")}`.toLowerCase().includes(q));
-    list = list.slice().sort(sort === "recent" ? (a, b) => String(b.last || "").localeCompare(String(a.last || "")) : sort === "name" ? (a, b) => a.name.localeCompare(b.name) : (a, b) => b.total - a.total);
-    const cards = list.slice(0, donorShown).map((d) => el("article", { class: "donor" },
-      el("span", { class: "donor-av" }, initials(d.name)),
-      el("div", { class: "donor-main" },
-        el("b", {}, highlight(d.name, q)),
-        el("span", { class: "tile-sub" }, `${d.count} gift${d.count === 1 ? "" : "s"} · ${d.sources.join(", ")}${d.first ? ` · since ${fmtDate(d.first)}` : ""}`)),
-      el("span", { class: "donor-amt mono" }, money(Math.round(d.total)), d.monthly ? el("small", {}, `${money(Math.round(d.monthly))}/mo`) : null)));
-    if (anon.length && !q) cards.push(el("article", { class: "donor anon-card" },
-      el("span", { class: "donor-av" }, "?"),
-      el("div", { class: "donor-main" }, el("b", {}, "Anonymous supporters"), el("span", { class: "tile-sub" }, `${anon.length} gift${anon.length === 1 ? "" : "s"}, names kept private`)),
-      el("span", { class: "donor-amt mono" }, money(Math.round(anon.reduce((t, p) => t + (p.value || 0), 0))))));
-    $("#donorGrid").replaceChildren(...(cards.length ? cards : [el("p", { class: "tile-sub" }, "No donors match that search.")]));
-    $("#donorCount").textContent = `${intFmt(D.leaders.length)} named donor${D.leaders.length === 1 ? "" : "s"}`;
-    $("#donorMore").hidden = list.length <= donorShown;
-  }
-
-  /* ───────────── Spending & receipts ───────────── */
-  let spendShown = 15;
+  /* ───────────── Spending ───────────── */
   function renderSpending(D) {
-    if (!showSection("#spending", D.expenses.length > 0, ghost("#spendList", 3, `Expenses appear here: open an issue labelled "${C.expenseLabel || "expense"}" with "amount: $…" and drop the receipt photo or PDF into it.`))) {
-      if (PREVIEW) { $("#spendStats").replaceChildren(); $("#spendCats").replaceChildren(); $("#spendFoot").textContent = ""; }
-      return;
-    }
-    const all = D.expenses.flatMap((e) => e.receipts || []);
-    const attached = all.filter((r) => r.kind !== "link").length, linked = all.length - attached;
-    const receipts = all.length;
-    const stat = (k, v, sub) => el("div", { class: "spend-stat" }, el("div", { class: "tile-label" }, k), el("div", { class: "mono spend-num" }, v), sub ? el("div", { class: "tile-sub" }, sub) : null);
-    $("#spendStats").replaceChildren(
-      stat("Spent", money(Math.round(D.spent)), D.raised > 0 ? `${Math.round((D.spent / D.raised) * 100)}% of what's been raised` : null),
-      stat("Expenses", intFmt(D.expenses.length), D.expensesPartial ? "latest only" : null),
-      stat("Receipts", intFmt(receipts), [attached && `${intFmt(attached)} attached`, linked && `${intFmt(linked)} linked`].filter(Boolean).join(" · ") || null),
-      stat("Biggest category", D.byCategory[0] ? D.byCategory[0].category : "–", D.byCategory[0] ? money(Math.round(D.byCategory[0].value)) : null));
-    const cats = D.byCategory.slice(0, 6), totalC = cats.reduce((t, c) => t + c.value, 0) || 1;
-    $("#spendCats").replaceChildren(
-      el("div", { class: "lang-bar cat-bar" }, cats.map((c, i) => el("i", { style: `flex:${Math.max(c.value, totalC * 0.01)};--o:${1 - i * 0.14}`, title: `${c.category}: ${money(Math.round(c.value))}` }))),
-      el("ul", { class: "lang-list" }, cats.map((c, i) => el("li", {}, el("span", { class: "lang-dot", style: `--o:${1 - i * 0.14}` }), c.category, el("span", { class: "muted mono" }, money(Math.round(c.value)))))));
-
-    syncSelect($("#spendCategory"), [["", "All categories"], ...D.byCategory.map((c) => [c.category, c.category])]);
-    const projs = [...new Map(D.expenses.filter((e) => e.project).map((e) => [e.project.tag, e.project.title]))];
-    syncSelect($("#spendProject"), [["", "All projects"], ...projs]);
-    const q = $("#spendSearch").value.trim().toLowerCase(), cf = $("#spendCategory").value, pf = $("#spendProject").value;
-    const rows = D.expenses.filter((e) => (!cf || (e.category || "uncategorised") === cf) && (!pf || (e.project && e.project.tag === pf))
-      && (!q || [e.title, e.vendor, e.category, e.note, e.sourceLabel, e.project && e.project.title].some((v) => String(v || "").toLowerCase().includes(q))));
-    $("#spendList").replaceChildren(...(rows.length ? rows.slice(0, spendShown).map((e) => el("article", { class: "expense" },
-      el("span", { class: "exp-date mono" }, fmtDate(e.date)),
-      el("div", { class: "exp-main" },
-        el("b", {}, highlight(e.title, q)),
-        el("span", { class: "tile-sub" }, [e.vendor && highlight(e.vendor, q), e.project && `for ${e.project.title}`, e.sourceLabel].filter(Boolean).flatMap((x, i) => (i ? [" · ", x] : [x]))),
-        e.note ? el("span", { class: "exp-note" }, excerpt(e.note, 140)) : null),
-      el("span", { class: "tag" }, e.category || "uncategorised"),
-      el("div", { class: "exp-receipts" }, (e.receipts || []).length
-        ? el("button", { class: "copy-mini", onclick: () => openReceipt(e, 0), "aria-label": `View receipt for ${e.title}` }, icon(e.receipts[0].kind === "image" ? "image" : e.receipts[0].kind === "file" ? "file" : "receipt"), e.receipts.length > 1 ? `${e.receipts.length}` : "Receipt")
-        : el("span", { class: "tile-sub" }, "No receipt")),
-      el("span", { class: "exp-amt mono" }, e.currency !== BASE && e.value != null ? `≈ ${money(e.value)}` : money(e.amount, e.currency))))
-      : [el("p", { class: "tile-sub", style: "padding:20px" }, "Nothing matches that search.")]));
-    const total = rows.reduce((t, e) => t + (e.value || 0), 0);
-    $("#spendFoot").textContent = rows.length ? `${Math.min(spendShown, rows.length)} of ${rows.length} · ${money(Math.round(total))}` : "";
-    $("#spendMore").hidden = rows.length <= spendShown;
+    if (!showSection("#spending", D.expenses.length > 0, blank("#spendList", "receipt", "No expenses yet"))) { $("#spendSummary").replaceChildren(); $('[data-search="expense"]').hidden = true; return; }
+    const receipts = D.expenses.reduce((t, e) => t + (e.receipts || []).length, 0);
+    const cats = D.byCategory.slice(0, 5), totalC = cats.reduce((t, c) => t + c.value, 0) || 1;
+    $("#spendSummary").replaceChildren(
+      el("div", { class: "next-line" },
+        el("span", {}, el("b", { class: "mono" }, money(Math.round(D.spent))), el("span", { class: "muted" }, ` spent · ${intFmt(D.expenses.length)} expense${D.expenses.length === 1 ? "" : "s"} · ${intFmt(receipts)} receipt${receipts === 1 ? "" : "s"}`)),
+        D.raised > 0 ? el("span", { class: "mono muted" }, `${Math.round((D.spent / D.raised) * 100)}% of raised`) : null),
+      cats.length > 1 ? el("div", { class: "lang-bar slim-bar" }, cats.map((c, i) => el("i", { style: `flex:${Math.max(c.value, totalC * 0.01)};--o:${1 - i * 0.16}`, title: `${c.category}: ${money(Math.round(c.value))}` }))) : null,
+      cats.length > 1 ? el("ul", { class: "lang-list small" }, cats.map((c, i) => el("li", {}, el("span", { class: "lang-dot", style: `--o:${1 - i * 0.16}` }), c.category))) : null);
+    $("#spendList").replaceChildren(...D.expenses.slice(0, 8).map((e) => row({
+      date: shortDate(e.date), title: e.title, sub: [e.vendor, e.project && e.project.title].filter(Boolean).join(" · ") || null,
+      meta: e.category || "",
+      extra: (e.receipts || []).length ? el("button", { class: "copy-mini", type: "button", "aria-label": `Receipt for ${e.title}`, onclick: (ev) => { ev.stopPropagation(); openReceipt(e, 0); } }, icon(e.receipts[0].kind === "image" ? "image" : e.receipts[0].kind === "file" ? "file" : "receipt")) : null,
+      value: e.currency !== BASE && e.value != null ? `≈ ${money(e.value)}` : money(e.amount, e.currency),
+      onclick: (e.receipts || []).length ? () => openReceipt(e, 0) : safeUrl(e.url) ? () => window.open(safeUrl(e.url), "_blank", "noopener") : null,
+    })));
+    $('[data-search="expense"]').hidden = D.expenses.length <= 8;
   }
 
   let receiptCtx = null;
@@ -902,7 +816,7 @@
   function renderGitHub(D) {
     const body = $("#githubBody");
     const g = D.gh, repos = g.repos || [], cal = g.contributions;
-    if (!showSection("#github", !!(repos.length || cal || g.pinned.length))) return;
+    if (!showSection("#github", !!(repos.length || cal || g.pinned.length), blank("#githubBody", "brand:github", "No GitHub activity yet"))) return;
     const parts = [];
 
     if (cal && cal.weeks && cal.weeks.length) {
@@ -970,7 +884,7 @@
     const body = $("#videosBody");
     const yt = state.snap && state.snap.youtube;
     const vids = (yt && yt.videos) || [];
-    if (!showSection("#videos", vids.length > 0, ghost("#videosBody", 3, "Videos appear here: set youtube in ledger.config.js (synced every 30 min)."))) return;
+    if (!showSection("#videos", vids.length > 0, blank("#videosBody", "video", "No videos yet"))) return;
     $("#videosSub").textContent = `Latest uploads from ${yt.title || "my channel"}.`;
     const play = (box, v) => {
       if (box.querySelector("iframe")) return;
@@ -991,17 +905,18 @@
       yt.url ? el("a", { class: "btn btn-ghost", href: safeUrl(yt.url), target: "_blank", rel: "noopener" }, icon("brand:youtube"), "Open channel", icon("arrow")) : null);
   }
   const svgPlay = () => { const s = svgEl("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }); s.innerHTML = '<path d="M8 5.5v13l11-6.5z" fill="currentColor"/>'; return s; };
-  const navLink = (href) => $(`#nav a[href="${href}"]`) || document.createElement("a");
-  // Sections with nothing real to show are removed (with their nav link), never padded with placeholders.
-  const showSection = (id, show, ghostFill) => {
-    const sec = $(id);
-    if (!show && PREVIEW && ghostFill) { if (sec) sec.hidden = false; navLink(id).hidden = false; ghostFill(); return false; }
-    if (sec) sec.hidden = !show; navLink(id).hidden = !show; return show;
+  const navLink = (href) => $(`#nav > a[href="${href}"]`) || document.createElement("a");
+  // Every section always renders. With no data it shows a plain empty card: no sample data, ever.
+  const showSection = (id, hasData, onEmpty) => {
+    const sec = $(id); if (sec) sec.hidden = false; navLink(id).hidden = false;
+    if (!hasData && onEmpty) onEmpty();
+    return hasData;
   };
-  // Empty layout for preview: outlines only, no invented names or numbers.
-  const ghost = (container, n, caption, cls = "") => () => $(container).replaceChildren(
-    el("div", { class: `ghost-wrap ${cls}` }, Array.from({ length: n }, () => el("div", { class: "card ghost" }, skel("30%", 11), skel("75%", 20), skel("95%"), skel("55%"), el("span", { class: "skel bar-skel" })))),
-    el("p", { class: "ghost-caption" }, caption));
+  const blank = (container, ic, text) => () => {
+    const box = $(container);
+    const card = el("div", { class: "blank" }, el("span", { class: "blank-ic" }, icon(ic)), el("span", {}, text));
+    box.replaceChildren(/^(OL|UL)$/.test(box.tagName) ? el("li", { class: "blank-li" }, card) : card);
+  };
 
   /* ───────────── platforms ───────────── */
   let platformFilter = "all";
@@ -1027,7 +942,7 @@
     const kinds = [...new Set(D.srcs.map((s) => s.meta.kind))];
     seg.hidden = kinds.length < 2;
     seg.replaceChildren(...["all", ...kinds].map((k) => el("button", { role: "tab", class: k === platformFilter ? "on" : "", "data-filter": k }, k === "all" ? "All" : KIND[k])));
-    if (!showSection("#donate", D.srcs.length > 0)) return;
+    if (!showSection("#donate", D.srcs.length > 0, blank("#platformGrid", "heart", "No donation links yet"))) return;
     grid.replaceChildren(...D.srcs.map((s) => {
       const v = SRC[s.id];
       const url = safeUrl(s.meta.link(v));
@@ -1080,7 +995,7 @@
       el("ul", { class: "social-list" }, socials.map((s) => el("li", {}, el("a", { href: s.url, target: "_blank", rel: "noopener me" },
         el("span", { class: "sname" }, icon(socialIcon(s.provider)), s.name), el("span", { class: "shandle" }, s.handle, icon("arrow"))))))));
     grid.dataset.count = String(cards.length);
-    if (!showSection("#contact", cards.length > 0 || !state.booted)) return;
+    if (!showSection("#contact", cards.length > 0, blank("#contactGrid", "mail", "No contact details yet"))) { grid.dataset.count = "1"; return; }
     grid.replaceChildren(...cards);
   }
 
@@ -1127,6 +1042,7 @@
     r.setProperty("--display-weight", String(f.displayWeight || 600));
     r.setProperty("--display-track", f.displayTrack || "-0.02em");
     document.documentElement.dataset.font = key;
+    if (document.fonts) document.fonts.ready.then(() => { if (navApi) navApi.layout(); });
     if (persist) { try { if (key === DEFAULT_FONT) localStorage.removeItem("ledger-font"); else localStorage.setItem("ledger-font", key); } catch {} }
   }
   let savedFont = null; try { savedFont = localStorage.getItem("ledger-font"); } catch {}
@@ -1140,26 +1056,45 @@
   }
   $("#themeToggle").addEventListener("click", toggleTheme);
 
-  /* ───────────── command palette ───────────── */
-  function paletteItems() {
+  /* ───────────── universal search (⌘K): everything, one box, filters ───────────── */
+  const TYPES = [
+    ["all", "All"], ["donation", "Donations"], ["donor", "Donors"], ["expense", "Expenses"], ["project", "Projects"],
+    ["milestone", "Milestones"], ["video", "Videos"], ["repo", "Repos"], ["link", "Links"], ["page", "Sections"], ["action", "Actions"],
+  ];
+  const TYPE_LABEL = Object.fromEntries(TYPES);
+  const scrollTo_ = (id) => () => { const x = $(id); if (x && !x.hidden) x.scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }); };
+  function searchIndex() {
     const D = current || derive();
-    const go = (id) => () => $(id).scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" });
+    const items = [];
+    const push = (o) => items.push({ ...o, text: [o.title, o.meta, o.extraText].filter(Boolean).join(" ").toLowerCase() });
+    for (const [href, [label, ic]] of Object.entries(SECTIONS)) if ($(href) && !$(href).hidden) push({ type: "page", title: label, meta: "Section", ic, run: scrollTo_(href) });
+    for (const p of D.payments) {
+      const pr = D.projects.find((x) => p.tags.includes(x.tag));
+      push({ type: "donation", title: p.name || "Anonymous", meta: [p.sourceLabel, pr && pr.title, p.message].filter(Boolean).join(" · "), ic: (META[p.source] || {}).icon || "coins",
+        value: p.value ?? null, valueText: p.value != null ? money(p.value) : money(p.amount, p.currency), date: p.date,
+        run: safeUrl(p.url) ? () => window.open(safeUrl(p.url), "_blank", "noopener") : null });
+    }
+    for (const d of D.leaders) push({ type: "donor", title: d.name, meta: `${d.count} gift${d.count === 1 ? "" : "s"} · ${d.sources.join(", ")}${d.monthly ? ` · ${money(Math.round(d.monthly))}/mo` : ""}`, ic: "donors",
+      value: d.total, valueText: money(Math.round(d.total)), date: d.last, stay: true, run: () => setSearch("donation", d.name) });
+    for (const e of D.expenses) push({ type: "expense", title: e.title, meta: [e.vendor, e.category, e.project && e.project.title, e.sourceLabel].filter(Boolean).join(" · "), extraText: e.note, ic: "receipt",
+      value: e.value, valueText: money(e.amount, e.currency), date: e.date,
+      run: (e.receipts || []).length ? () => openReceipt(e, 0) : safeUrl(e.url) ? () => window.open(safeUrl(e.url), "_blank", "noopener") : null });
+    for (const p of D.projects) push({ type: "project", title: p.title, meta: [STATUS[p.status] || p.status, p.goal ? `${money(p.raised)} of ${money(p.goal)}` : null, `#${p.tag}`].filter(Boolean).join(" · "), extraText: p.body, ic: "folder",
+      value: p.raised, valueText: p.goal ? `${Math.round(Math.min(1, p.raised / p.goal) * 100)}%` : money(p.raised), date: p.updatedAt, run: () => openProject(p.number) });
+    for (const m of D.milestones) push({ type: "milestone", title: winTitle(m), meta: winDetail(m), ic: WIN_ICON[m.kind] || "spark", date: m.date, run: scrollTo_("#wins") });
+    for (const v of (state.snap && state.snap.youtube && state.snap.youtube.videos) || []) push({ type: "video", title: v.title, meta: v.views != null ? `${intFmt(v.views)} views` : "YouTube", ic: "video",
+      value: v.views, date: v.published, run: () => window.open(`https://www.youtube.com/watch?v=${encodeURIComponent(v.id)}`, "_blank", "noopener") });
+    for (const r of D.gh.repos || []) push({ type: "repo", title: r.name, meta: r.description || r.language || "", ic: "brand:github", value: r.stars, valueText: `★ ${intFmt(r.stars || 0)}`, date: r.pushedAt, run: () => window.open(safeUrl(r.url), "_blank", "noopener") });
+    for (const s of D.srcs) push(s.meta.address
+      ? { type: "link", title: `${s.meta.label} address`, meta: "Copy to clipboard", extraText: SRC[s.id], ic: s.meta.icon, run: () => copy(SRC[s.id], `${s.meta.label} address copied`) }
+      : { type: "link", title: s.meta.label, meta: s.meta.handle ? s.meta.handle(SRC[s.id]) : "Donate", ic: s.meta.icon, run: () => window.open(safeUrl(s.meta.link(SRC[s.id])), "_blank", "noopener") });
+    for (const s of socialList(D)) push({ type: "link", title: s.name, meta: s.handle, ic: socialIcon(s.provider), run: () => window.open(s.url, "_blank", "noopener") });
     const email = C.email || (D.gh.profile && D.gh.profile.email);
-    return [
-      ...[["#overview", "Overview"], ["#projects", "Projects"], ["#drives", "Drives & goals"], ["#wins", "Milestones"], ["#supporters", "Supporters & ledger"], ["#spending", "Spending & receipts"], ["#videos", "Videos"], ["#github", "GitHub"], ["#donate", "Ways to support"], ["#contact", "Contact"]].filter(([id]) => !$(id).hidden).map(([id, label]) => ({ group: "Sections", label, sub: id, ic: "hash", run: go(id) })),
-      ...D.projects.map((p) => ({ group: "Projects", label: p.title, sub: p.goal ? `${money(p.raised)} / ${money(p.goal)}` : `#${p.number}`, ic: "folder", run: () => openProject(p.number) })),
-      ...D.srcs.map((s) => s.meta.address
-        ? { group: "Donate", label: `Copy ${s.meta.label} address`, sub: SRC[s.id], ic: "copy", run: () => copy(SRC[s.id], `${s.meta.label} address copied`) }
-        : { group: "Donate", label: s.meta.label, sub: s.meta.handle ? s.meta.handle(SRC[s.id]) : "", ic: s.meta.icon, run: () => window.open(safeUrl(s.meta.link(SRC[s.id])), "_blank", "noopener") }),
-      ...D.leaders.slice(0, 40).map((d) => ({ group: "Donors", label: d.name, sub: money(Math.round(d.total)), ic: "users", run: () => { $("#donorSearch").value = d.name; renderDonors(current); $("#donorsCard").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block: "center" }); } })),
-      ...D.expenses.slice(0, 40).map((e) => ({ group: "Spending", label: e.title, sub: money(e.amount, e.currency), ic: "receipt", run: () => (e.receipts || []).length ? openReceipt(e, 0) : (() => { $("#spendSearch").value = e.title; renderSpending(current); $("#spending").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }); })() })),
-      ...D.milestones.slice(0, 20).map((m) => ({ group: "Milestones", label: winTitle(m), sub: m.date ? fmtDate(m.date) : "now", ic: WIN_ICON[m.kind] || "spark", run: () => $("#wins").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }) })),
-      ...socialList(D).map((s) => ({ group: "Socials", label: s.name, sub: s.handle, ic: socialIcon(s.provider), run: () => window.open(s.url, "_blank", "noopener") })),
-      { group: "Actions", label: "Refresh live data", sub: "now", ic: "refresh", run: () => refresh(true) },
-      { group: "Actions", label: "Toggle light / dark", sub: "theme", ic: "sun", run: toggleTheme },
-      ...Object.entries(FONTS).map(([k, f]) => ({ group: "Fonts", label: `${document.documentElement.dataset.font === k ? "✓ " : ""}${f.label}${k === DEFAULT_FONT ? " (default)" : ""}`, sub: f.note, ic: "type", run: () => { applyFont(k, true); toast(`Font: ${f.label}`); } })),
-      email ? { group: "Actions", label: "Copy email address", sub: email, ic: "copy", run: () => copy(email, "Email copied") } : null,
-    ].filter(Boolean);
+    push({ type: "action", title: "Refresh live data", meta: "Fetch every source again", ic: "refresh", run: () => refresh(true) });
+    push({ type: "action", title: "Toggle light / dark", meta: "Theme", ic: "sun", run: toggleTheme });
+    if (email) push({ type: "action", title: "Copy email address", meta: email, ic: "copy", run: () => copy(email, "Email copied") });
+    for (const [k, f] of Object.entries(FONTS)) push({ type: "action", title: `Font: ${f.label}${document.documentElement.dataset.font === k ? " ✓" : ""}`, meta: f.note, ic: "type", run: () => { applyFont(k, true); toast(`Font: ${f.label}`); } });
+    return items;
   }
   function fuzzy(q, s) {
     if (!q) return 0; s = String(s || "").toLowerCase();
@@ -1168,31 +1103,81 @@
     for (const ch of q) { const j = s.indexOf(ch, si); if (j === -1) return -1; streak = j === si ? streak + 1 : 0; score += 1 + streak * 2; si = j + 1; }
     return score;
   }
-  const pal = $("#palette"), palInput = $("#paletteInput"), palList = $("#paletteList");
-  let palAll = [], palView = [], palSel = 0;
+  const pal = $("#palette"), palInput = $("#paletteInput"), palList = $("#paletteList"), palChips = $("#paletteChips"), palSort = $("#paletteSort");
+  let palAll = [], palView = [], palSel = 0, palType = "all";
+  function score(it, q) {
+    if (!q) return 0;
+    const t = fuzzy(q, it.title); if (t >= 0) return t + 200;
+    return it.text.includes(q) ? 100 : -1;
+  }
   function renderPalette() {
     const q = palInput.value.trim().toLowerCase();
-    palView = palAll.map((it) => ({ it, s: Math.max(fuzzy(q, it.label), fuzzy(q, it.sub) - 50, fuzzy(q, it.group) - 100) })).filter((x) => x.s >= 0).sort((a, b) => (q ? b.s - a.s : 0)).map((x) => x.it);
+    const matched = palAll.map((it) => ({ it, s: score(it, q) })).filter((x) => x.s >= 0);
+    const counts = matched.reduce((m, x) => { m[x.it.type] = (m[x.it.type] || 0) + 1; return m; }, {});
+    // filter chips (only types that have something)
+    palChips.replaceChildren(...TYPES.filter(([t]) => t === "all" || counts[t]).map(([t, label]) =>
+      el("button", { type: "button", role: "tab", class: `chip${palType === t ? " on" : ""}`, "aria-selected": String(palType === t), onclick: () => { palType = t; palSel = 0; renderPalette(); palInput.focus(); } },
+        label, el("span", { class: "chip-n" }, t === "all" ? matched.filter((x) => x.it.type !== "action" || q).length : counts[t]))));
+    if (palType !== "all" && !counts[palType]) palType = "all";
+    let view = matched.filter((x) => (palType === "all" ? (q || x.it.type !== "action") : x.it.type === palType));
+    const sort = palSort.value;
+    const t = (x) => (x.it.date ? new Date(x.it.date).getTime() : 0);
+    if (sort === "new") view.sort((a, b) => t(b) - t(a));
+    else if (sort === "big") view.sort((a, b) => (b.it.value ?? -1) - (a.it.value ?? -1));
+    else if (q) view.sort((a, b) => b.s - a.s);
+    else if (palType !== "all") view.sort((a, b) => (["donor", "repo"].includes(palType) ? (b.it.value ?? 0) - (a.it.value ?? 0) : t(b) - t(a)));
+    palView = view.slice(0, 200).map((x) => x.it);
     palSel = Math.min(palSel, Math.max(0, palView.length - 1));
+    $("#paletteCount").textContent = view.length ? `${intFmt(view.length)} result${view.length === 1 ? "" : "s"}` : "";
     palList.replaceChildren();
-    if (!palView.length) { palList.append(el("li", { class: "palette-empty" }, "No results")); return; }
-    let lastGroup = null;
-    palView.forEach((it, i) => {
-      if (!q && it.group !== lastGroup) { palList.append(el("li", { class: "palette-group", role: "presentation" }, it.group)); lastGroup = it.group; }
-      palList.append(el("li", { class: "palette-item", role: "option", "aria-selected": String(i === palSel), "data-i": i, onpointermove: () => { if (palSel !== i) { palSel = i; markSel(); } }, onclick: () => runPal(i) },
-        el("span", { class: "pi-ic" }, icon(it.ic)), el("span", {}, it.label), it.sub ? el("span", { class: "pi-sub" }, it.sub) : null));
-    });
+    if (!palView.length) { palList.append(el("li", { class: "palette-empty" }, q ? `Nothing found for “${palInput.value.trim()}”` : "Nothing here yet")); return; }
+    // With no query on "All", group by type and show a few of each.
+    if (!q && palType === "all") {
+      const order = TYPES.map(([t]) => t).filter((x) => x !== "all");
+      const groups = order.map((ty) => [ty, palView.filter((it) => it.type === ty)]).filter(([, l]) => l.length);
+      palView = groups.flatMap(([, l]) => l.slice(0, 4));
+      let i = 0;
+      for (const [ty, l] of groups) {
+        palList.append(el("li", { class: "palette-group", role: "presentation" }, TYPE_LABEL[ty], l.length > 4 ? el("button", { type: "button", class: "link-btn", onclick: () => { palType = ty; palSel = 0; renderPalette(); palInput.focus(); } }, `All ${l.length}`) : null));
+        for (const it of l.slice(0, 4)) palList.append(palRow(it, i++, q));
+      }
+      markSel(); return;
+    }
+    palView.forEach((it, i) => palList.append(palRow(it, i, q)));
   }
+  const palRow = (it, i, q) => el("li", { class: "palette-item", role: "option", "aria-selected": String(i === palSel), "data-i": i, onpointermove: () => { if (palSel !== i) { palSel = i; markSel(); } }, onclick: () => runPal(i) },
+    el("span", { class: "pi-ic" }, icon(it.ic)),
+    el("span", { class: "pi-main" }, el("span", { class: "pi-title" }, highlight(it.title, q)), it.meta ? el("span", { class: "pi-meta" }, highlight(it.meta, q)) : null),
+    el("span", { class: "pi-side mono" }, it.valueText ? el("b", {}, it.valueText) : null, it.date ? el("span", {}, shortDate(it.date)) : null));
   function markSel() { $$(".palette-item", palList).forEach((n) => n.setAttribute("aria-selected", String(Number(n.dataset.i) === palSel))); const cur = $(`.palette-item[data-i="${palSel}"]`, palList); if (cur) cur.scrollIntoView({ block: "nearest" }); }
-  function runPal(i) { const it = palView[i]; if (!it) return; pal.close(); setTimeout(it.run, 10); }
-  function openPalette() { if (pal.open) return; palAll = paletteItems(); palInput.value = ""; palSel = 0; renderPalette(); pal.showModal(); palInput.focus(); }
+  function runPal(i) {
+    const it = palView[i]; if (!it || !it.run) return;
+    if (it.stay) { it.run(); return; }
+    pal.close(); setTimeout(it.run, 10);
+  }
+  function setSearch(type, q) { palType = type; palInput.value = q || ""; palSel = 0; renderPalette(); palInput.focus(); }
+  function openPalette(type = "all", q = "") {
+    palAll = searchIndex();
+    if (!pal.open) pal.showModal();
+    palSort.value = "best";
+    setSearch(type, q);
+  }
   palInput.addEventListener("input", () => { palSel = 0; renderPalette(); });
+  palSort.addEventListener("change", () => { palSel = 0; renderPalette(); palInput.focus(); });
   palInput.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") { e.preventDefault(); palSel = (palSel + 1) % Math.max(1, palView.length); markSel(); }
     else if (e.key === "ArrowUp") { e.preventDefault(); palSel = (palSel - 1 + palView.length) % Math.max(1, palView.length); markSel(); }
     else if (e.key === "Enter") { e.preventDefault(); runPal(palSel); }
+    else if (e.key === "Tab") {
+      e.preventDefault();
+      const chips = $$(".chip", palChips).map((c) => c.textContent.replace(/\d+$/, ""));
+      const types = TYPES.filter(([, l]) => chips.includes(l)).map(([t]) => t);
+      const i = types.indexOf(palType);
+      palType = types[(i + (e.shiftKey ? -1 : 1) + types.length) % types.length] || "all"; palSel = 0; renderPalette();
+    }
   });
-  $("#openPalette").addEventListener("click", openPalette);
+  $("#openPalette").addEventListener("click", () => openPalette());
+  document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("[data-search]"); if (b) { e.preventDefault(); openPalette(b.dataset.search); } });
   if (!/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) $("#kbdHint").textContent = "Ctrl K";
   document.addEventListener("keydown", (e) => {
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
@@ -1202,20 +1187,111 @@
   $$("dialog").forEach((d) => d.addEventListener("click", (e) => { if (e.target === d || e.target.closest("[data-close]")) d.close(); }));
 
   /* ───────────── nav, reveal, spotlight ───────────── */
+  /* ───────────── top bar: priority nav + "More", mobile sheet, progress ───────────── */
+  const SECTIONS = {
+    "#overview": ["Overview", "home"], "#projects": ["Work", "folder"], "#drives": ["Drives", "target"],
+    "#wins": ["Milestones", "wins"], "#supporters": ["Backers", "donors"], "#spending": ["Spending", "spending"],
+    "#videos": ["Videos", "video"], "#github": ["GitHub", "brand:github"], "#donate": ["Support", "heart"], "#contact": ["Contact", "mail"],
+  };
+  let navApi = null;
   function setupNav() {
-    const links = $$("#nav a"), ind = $("#navIndicator"), bar = $("#topbar");
-    const move = (a) => { links.forEach((l) => l.classList.toggle("active", l === a)); if (!a) { ind.style.opacity = 0; return; } ind.style.opacity = 1; ind.style.width = `${a.offsetWidth}px`; ind.style.transform = `translateX(${a.offsetLeft}px)`; };
-    const spy = () => {
-      const sections = links.filter((l) => !l.hidden).map((l) => $(l.getAttribute("href"))).filter((x) => x && !x.hidden);
-      if (!sections.length) return;
-      bar.classList.toggle("scrolled", window.scrollY > 4);
-      const y = window.scrollY + window.innerHeight * 0.3; let cur = sections[0];
-      for (const s of sections) if (s.offsetTop <= y) cur = s;
-      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) cur = sections[sections.length - 1];
-      move(links.find((l) => l.getAttribute("href") === `#${cur.id}`));
-    };
-    let raf; window.addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(spy); }, { passive: true });
-    window.addEventListener("resize", spy); if (document.fonts) document.fonts.ready.then(spy); spy();
+    const bar = $("#topbar"), nav = $("#nav"), slot = $("#navSlot"), ind = $("#navIndicator");
+    const more = $("#navMore"), moreBtn = $("#navMoreBtn"), menu = $("#navMenu");
+    const sheet = $("#sheet"), menuBtn = $("#menuBtn"), progress = $("#scrollProgress");
+    moreBtn.append(icon("down"));
+    menuBtn.append(icon("menu"));
+    const links = () => $$("#nav > a").filter((a) => !a.hidden);
+    let active = null; // "#section" or null (overview)
+    const slotOn = () => getComputedStyle(slot).display !== "none";
+
+    // Fit as many links as the bar allows; the rest go under "More".
+    function layout() {
+      const all = links();
+      all.forEach((a) => a.classList.remove("overflowed"));
+      more.hidden = true;
+      if (slotOn() && nav.scrollWidth > slot.clientWidth) {
+        more.hidden = false;
+        for (let i = all.length - 1; i >= 1 && nav.scrollWidth > slot.clientWidth; i--) all[i].classList.add("overflowed");
+      }
+      const over = all.filter((a) => a.classList.contains("overflowed"));
+      if (!over.length) more.hidden = true;
+      menu.replaceChildren(...over.map((a) => {
+        const href = a.getAttribute("href"), [label, ic] = SECTIONS[href] || [a.textContent, "hash"];
+        return el("a", { href, role: "menuitem", class: "nav-menu-item", onclick: () => closeMore() }, icon(ic), label);
+      }));
+      position();
+    }
+    // Slide the pill under the active link (or under "More" when the active one is tucked away).
+    function position() {
+      const all = links();
+      const target = all.find((a) => a.getAttribute("href") === active) || null;
+      const inMore = !!target && target.classList.contains("overflowed");
+      all.forEach((l) => l.classList.toggle("active", l === target && !inMore));
+      moreBtn.classList.toggle("active", inMore);
+      $$(".nav-menu-item", menu).forEach((m) => m.classList.toggle("active", m.getAttribute("href") === active));
+      $$(".sheet-item", sheet).forEach((m) => m.classList.toggle("active", m.getAttribute("href") === (active || "#overview")));
+      $("#brandSub").textContent = (SECTIONS[active || "#overview"] || [""])[0];
+      const anchor = inMore ? more : target;
+      if (!anchor || !slotOn()) { ind.style.opacity = 0; return; }
+      ind.style.opacity = 1; ind.style.width = `${anchor.offsetWidth}px`; ind.style.transform = `translateX(${anchor.offsetLeft}px)`;
+    }
+    function spy() {
+      const y = window.scrollY;
+      bar.classList.toggle("scrolled", y > 4);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      progress.style.setProperty("--p", max > 0 ? Math.min(1, y / max).toFixed(4) : 0);
+      const ids = ["#overview", ...links().map((a) => a.getAttribute("href"))];
+      const secs = ids.map((id) => $(id)).filter((x) => x && !x.hidden);
+      if (!secs.length) return;
+      const line = y + window.innerHeight * 0.3;
+      let cur = secs[0];
+      for (const sec of secs) if (sec.offsetTop <= line) cur = sec;
+      if (window.innerHeight + y >= document.documentElement.scrollHeight - 2) cur = secs[secs.length - 1];
+      const next = cur.id === "overview" ? null : `#${cur.id}`;
+      if (next !== active) { active = next; position(); }
+    }
+
+    // "More" dropdown
+    const openMore = () => { more.classList.add("open"); moreBtn.setAttribute("aria-expanded", "true"); };
+    const closeMore = () => { more.classList.remove("open"); moreBtn.setAttribute("aria-expanded", "false"); };
+    moreBtn.addEventListener("click", (e) => { e.stopPropagation(); more.classList.contains("open") ? closeMore() : openMore(); });
+    moreBtn.addEventListener("keydown", (e) => { if (e.key === "ArrowDown") { e.preventDefault(); openMore(); const f = $(".nav-menu-item", menu); if (f) f.focus(); } });
+    menu.addEventListener("keydown", (e) => {
+      const items = $$(".nav-menu-item", menu), i = items.indexOf(document.activeElement);
+      if (e.key === "ArrowDown") { e.preventDefault(); (items[i + 1] || items[0]).focus(); }
+      if (e.key === "ArrowUp") { e.preventDefault(); (items[i - 1] || items[items.length - 1]).focus(); }
+    });
+
+    // Mobile / tablet sheet
+    function buildSheet() {
+      const ids = ["#overview", ...links().map((a) => a.getAttribute("href"))];
+      $("#sheetGrid").replaceChildren(...ids.map((href, i) => {
+        const [label, ic] = SECTIONS[href] || [href, "hash"];
+        return el("a", { href, class: `sheet-item${(active || "#overview") === href ? " active" : ""}`, onclick: () => closeSheet() },
+          el("span", { class: "num" }, String(i).padStart(2, "0")), icon(ic), el("span", {}, label));
+      }));
+      $("#sheetActions").replaceChildren(
+        el("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: () => { closeSheet(); openPalette(); } }, icon("search"), "Search"),
+        el("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: () => toggleTheme() }, icon("sun"), "Theme"),
+        el("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: () => { closeSheet(); refresh(true); } }, icon("refresh"), "Refresh"));
+    }
+    const openSheet = () => { buildSheet(); sheet.hidden = false; bar.classList.add("sheet-open"); menuBtn.setAttribute("aria-expanded", "true"); menuBtn.replaceChildren(icon("close")); const f = $(".sheet-item", sheet); if (f) f.focus({ preventScroll: true }); };
+    const closeSheet = () => { if (sheet.hidden) return; sheet.hidden = true; bar.classList.remove("sheet-open"); menuBtn.setAttribute("aria-expanded", "false"); menuBtn.replaceChildren(icon("menu")); };
+    menuBtn.addEventListener("click", (e) => { e.stopPropagation(); sheet.hidden ? openSheet() : closeSheet(); });
+
+    document.addEventListener("click", (e) => {
+      if (!more.contains(e.target)) closeMore();
+      if (!sheet.hidden && !sheet.contains(e.target) && e.target !== menuBtn) closeSheet();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (more.classList.contains("open")) { closeMore(); moreBtn.focus(); } if (!sheet.hidden) { closeSheet(); menuBtn.focus(); } } });
+
+    let raf;
+    window.addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(spy); }, { passive: true });
+    window.addEventListener("resize", () => { layout(); if (!slotOn()) closeMore(); else closeSheet(); spy(); });
+    if ("ResizeObserver" in window) new ResizeObserver(() => layout()).observe(slot);
+    if (document.fonts) document.fonts.ready.then(() => { layout(); spy(); });
+    navApi = { layout: () => { layout(); spy(); } };
+    layout(); spy();
   }
   function setupReveal() {
     const items = $$(".reveal");
@@ -1275,22 +1351,7 @@
   }
   segmented($("#projectFilter"), (f) => { projectFilter = f; $$(".project").forEach((c) => c.classList.toggle("hide", f !== "all" && c.dataset.status !== f)); });
   segmented($("#platformFilter"), (f) => { platformFilter = f; $$(".platform").forEach((c) => c.classList.toggle("hide", f !== "all" && c.dataset.kind !== f)); });
-  let winT, donorT, spendT;
-  $("#winSearch").addEventListener("input", () => { clearTimeout(winT); winT = setTimeout(() => renderWins(current), 120); });
-  $("#donorSearch").addEventListener("input", () => { clearTimeout(donorT); donorT = setTimeout(() => { donorShown = 24; renderDonors(current); }, 120); });
-  $("#donorSort").addEventListener("change", () => renderDonors(current));
-  $("#donorMore").addEventListener("click", () => { donorShown += 48; renderDonors(current); });
-  $("#spendSearch").addEventListener("input", () => { clearTimeout(spendT); spendT = setTimeout(() => { spendShown = 15; renderSpending(current); }, 120); });
-  $("#spendCategory").addEventListener("change", () => { spendShown = 15; renderSpending(current); });
-  $("#spendProject").addEventListener("change", () => { spendShown = 15; renderSpending(current); });
-  $("#spendMore").addEventListener("click", () => { spendShown += 15; renderSpending(current); });
   segmented($("#chartRange"), (r) => { chartRange = r === "all" ? "all" : Number(r); renderChart(current); });
-  let searchT;
-  $("#tableSearch").addEventListener("input", () => { clearTimeout(searchT); searchT = setTimeout(() => renderTable(current, true), 120); });
-  $("#tableSource").addEventListener("change", () => renderTable(current, true));
-  $("#tableProject").addEventListener("change", () => { tableState.project = $("#tableProject").value; renderTable(current, true); });
-  $("#tableSort").addEventListener("change", () => renderTable(current, true));
-  $("#tableMore").addEventListener("click", () => { tableState.shown += PAGE; renderTable(current, false); });
   $("#livePill").addEventListener("click", () => refresh(true));
 
   /* ───────────── render + refresh loop ───────────── */
@@ -1299,10 +1360,15 @@
     current = derive();
     const D = current;
     const p = D.gh.profile;
-    if (p) { $("#brandName").textContent = p.name; document.title = `${p.name} · Ledger`; }
-    renderSetup(D); renderBento(D); renderProjects(D); renderDrives(D); renderWins(D); renderChart(D); renderBoard(D); renderTable(D, false); renderDonors(D); renderSpending(D); renderVideos(); renderGitHub(D); renderPlatforms(D); renderContact(D); renderFooter(D); renderLivePill();
+    if (p) {
+      $("#brandName").textContent = p.name; document.title = `${p.name} · Ledger`;
+      const mark = $("#brandMark");
+      if (safeUrl(p.avatar) && !mark.querySelector("img")) { mark.classList.add("has-img"); mark.replaceChildren(el("img", { src: safeUrl(p.avatar), alt: "", width: "28", height: "28" })); }
+    }
+    renderSetup(D); renderBento(D); renderProjects(D); renderDrives(D); renderWins(D); renderChart(D); renderBoard(D); renderRecent(D); renderSpending(D); renderVideos(); renderGitHub(D); renderPlatforms(D); renderContact(D); renderFooter(D); renderLivePill();
     // Number the visible sections 01, 02, … so hidden ones leave no gaps.
     $$("main > section:not([hidden]) .eyebrow").forEach((e, i) => { e.textContent = String(i + 1).padStart(2, "0"); });
+    if (navApi) navApi.layout();
   }
 
   async function refresh(manual) {
